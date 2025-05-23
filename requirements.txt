@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+httpx
+openai
+tiktoken
+upstash-redis
+numpy
+pandas
+python-dotenv
