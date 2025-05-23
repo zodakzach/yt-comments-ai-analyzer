@@ -7,3 +7,4 @@ upstash-redis
 numpy
 pandas
 python-dotenv
+pydantic-settings

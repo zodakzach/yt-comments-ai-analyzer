@@ -1,10 +1,10 @@
-from app.services.fetch_comments import fetch_comments
+from app.services.fetch_comments import fetch_all_comments
 from app.core.openai_client import async_client  # AsyncOpenAI instance
 
 
 async def summarize_comments(video_id: str) -> tuple[str, list[dict]]:
     # Fetch and sort comments
-    comments = await fetch_comments(video_id)
+    comments = await fetch_all_comments(video_id)
     comments_sorted = sorted(comments, key=lambda x: x["likeCount"], reverse=True)
 
     # Build prompt from top 50 comments
