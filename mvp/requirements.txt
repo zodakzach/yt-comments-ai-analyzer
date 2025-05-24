@@ -1,8 +1,0 @@
-FastAPI
-Pandas
-Numpy
-uvicorn
-httpx
-python-dotenv
-openai
-sqlalchemy

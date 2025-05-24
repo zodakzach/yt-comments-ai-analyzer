@@ -19,11 +19,12 @@ app = FastAPI(title="Thread Summarizer API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # lock down in prod
+    allow_origins=["*"],  # lock down in prod
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # ─── Timing & Logging Middleware ──────────────────────────────────────────────
 @app.middleware("http")
@@ -42,9 +43,11 @@ async def log_and_time(request: Request, call_next):
     response.headers["X-Process-Time"] = f"{duration:.3f}"
     return response
 
+
 # ─── Routes ──────────────────────────────────────────────────────────────────
 @app.get("/")
 async def root():
     return {"message": "Welcome to the Thread Summarizer API"}
+
 
 app.include_router(api_router)

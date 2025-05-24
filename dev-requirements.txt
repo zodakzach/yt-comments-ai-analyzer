@@ -4,4 +4,4 @@ pytest-asyncio
 httpx
 
 # Formatting & linting
-black
+ruff

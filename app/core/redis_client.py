@@ -1,7 +1,6 @@
-from dotenv import load_dotenv
-load_dotenv()   # ⬅️ load .env into os.environ
-
 from upstash_redis.asyncio import Redis
+from app.core.config import settings
 
-# Now UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are available
-redis_client = Redis.from_env()
+redis_client = Redis(
+    url=settings.UPSTASH_REDIS_REST_URL, token=settings.UPSTASH_REDIS_REST_TOKEN
+)
