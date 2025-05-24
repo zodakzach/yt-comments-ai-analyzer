@@ -13,9 +13,7 @@
     "summarizer",
     "tailwind",
     "htmx",
-    "daisyui",
-    "AI",
-    "vector search"
+    "daisyui"
   ],
   "author": "ZodakZach",
   "license": "MIT",
@@ -30,6 +28,6 @@
     "tailwindcss": "^4.1.7"
   },
   "dependencies": {
-    "htmx.org": "^1.9.12"
+    "htmx.org": "^2.0.4"
   }
 }
