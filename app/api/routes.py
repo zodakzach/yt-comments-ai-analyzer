@@ -1,6 +1,7 @@
 import uuid
 import json
-from fastapi import APIRouter, HTTPException
+import logging
+from fastapi import APIRouter, HTTPException, Response, Request
 from app.core.redis_client import redis_client
 from app.models.schemas import (
     SummarizeRequest,
@@ -12,25 +13,54 @@ from app.models.schemas import (
 from app.services.summarize import summarize_comments
 from app.services.vectorize import vectorize_comments
 from app.services.search import search_similar_comments, generate_answer
+from app.services.errors import (
+    EmbeddingError,
+    OpenAIInteractionError,
+    CommentFetchError,
+)
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/summarize/", response_model=SummarizeResponse)
-async def summarize(request: SummarizeRequest):
+async def summarize(request: SummarizeRequest, response: Response):
+    # 1️⃣ Summarize comments
     try:
-        # Summarize comments (async)
         summary, sorted_comments = await summarize_comments(request.youtube_url)
+    except CommentFetchError as e:
+        logger.error("Fetch-comments failure: %s", e)
+        raise HTTPException(status_code=502, detail=str(e))
+    except OpenAIInteractionError as e:
+        logger.error("OpenAI failure during summarization: %s", e)
+        raise HTTPException(status_code=502, detail=str(e))
+    except Exception:
+        logger.exception("Unexpected summarization error")
+        raise HTTPException(
+            status_code=500, detail="Internal error summarizing comments."
+        )
 
-        # Take top 500 comments and vectorize (async)
+    # 2️⃣ Vectorize top comments
+    try:
         top_comments = sorted_comments[:500]
         embeddings = await vectorize_comments(top_comments)
 
-        # Create session and store in Redis (async)
+    except ValueError as ve:
+        # No valid text to embed → client sent unusable comments
+        logger.warning("No valid comments to embed: %s", ve)
+        raise HTTPException(status_code=400, detail=str(ve))
+
+    except EmbeddingError as ee:
+        # Upstream rate‐limit or API error → treat as bad gateway
+        logger.error("Embedding error: %s", ee)
+        raise HTTPException(status_code=502, detail=str(ee))
+
+    # 3️⃣ Store in Redis
+    try:
         session_id = str(uuid.uuid4())
         await redis_client.setex(
             session_id,
-            3600,  # 1 hour TTL
+            3600,
             json.dumps(
                 {
                     "summary": summary,
@@ -39,28 +69,45 @@ async def summarize(request: SummarizeRequest):
                 }
             ),
         )
-
-        return {
-            "session_id": session_id,
-            "summary": summary,
-            "message": "You can now ask questions using this session. Session expires in 1 hour.",
-        }
-
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Redis error: %s", e)
+        raise HTTPException(status_code=500, detail="Internal error storing session.")
+
+    # 🟢 Set session_id as a secure cookie
+    response.set_cookie(
+        key="session_id",
+        value=session_id,
+        max_age=3600,
+        httponly=True,
+        secure=True,
+        samesite="lax",  # Consider "strict" if your frontend doesn't need to send the cookie on GETs from external sites
+    )
+
+    return {
+        "summary": summary,
+    }
 
 
 @router.post("/question/", response_model=QuestionResponse)
-async def answer_question(request: QuestionRequest):
+async def answer_question(request: QuestionRequest, http_request: Request):
     try:
-        # Retrieve session data (async)
-        data_raw = await redis_client.get(request.session_id)
+        # 1️⃣ Get session ID from cookie
+        session_id = http_request.cookies.get("session_id")
+        if not session_id:
+            raise HTTPException(status_code=401, detail="Missing session cookie")
+
+        # 2️⃣ Fetch session from Redis
+        data_raw = await redis_client.get(session_id)
         if not data_raw:
             raise HTTPException(status_code=404, detail="Session expired or not found")
 
-        data = json.loads(data_raw)
+        try:
+            data = json.loads(data_raw)
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON in Redis for session_id=%s", session_id)
+            raise HTTPException(status_code=500, detail="Corrupted session data")
 
-        # Perform semantic search and answer generation (async)
+        # 3️⃣ Search similar comments and generate answer
         similar = await search_similar_comments(
             question=request.question,
             embeddings=data["embeddings"],
@@ -70,10 +117,16 @@ async def answer_question(request: QuestionRequest):
 
         return {"similar_comments": similar, "answer": answer}
 
+    except OpenAIInteractionError as oe:
+        logger.error("OpenAI API error while answering question: %s", oe)
+        raise HTTPException(status_code=502, detail="OpenAI service unavailable")
+
     except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise  # Let FastAPI handle these as-is
+
+    except Exception:
+        logger.exception("Unhandled error during /question processing")
+        raise HTTPException(status_code=500, detail="Unexpected error during Q&A")
 
 
 @router.get("/health", response_model=HealthResponse, tags=["Health"])

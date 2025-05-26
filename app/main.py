@@ -1,4 +1,9 @@
 # app/main.py
+from app.core.logging import init_logging
+
+# 1️⃣ Initialize logging first
+init_logging()
+
 import time
 import logging
 
@@ -6,16 +11,10 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router as api_router
 
-# ─── Logging setup ────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)-8s %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-logger = logging.getLogger("thread-summarizer")
+logger = logging.getLogger(__name__)  # now logs as "app.main"
 
 # ─── App & CORS ───────────────────────────────────────────────────────────────
-app = FastAPI(title="Thread Summarizer API", version="0.1.0")
+app = FastAPI(title="YouTube Comment Summarizer API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,13 +32,14 @@ async def log_and_time(request: Request, call_next):
     response = await call_next(request)
     duration = time.time() - start
 
-    # Log method, path, status code, and duration
     logger.info(
-        f"{request.method} {request.url.path} "
-        f"→ {response.status_code} in {duration:.3f}s"
+        "%s %s → %d in %.3fs",
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration,
     )
 
-    # Optionally add the timing header
     response.headers["X-Process-Time"] = f"{duration:.3f}"
     return response
 
@@ -47,7 +47,7 @@ async def log_and_time(request: Request, call_next):
 # ─── Routes ──────────────────────────────────────────────────────────────────
 @app.get("/")
 async def root():
-    return {"message": "Welcome to the Thread Summarizer API"}
+    return {"message": "Welcome to the YouTube Comment Summarizer API"}
 
 
 app.include_router(api_router)

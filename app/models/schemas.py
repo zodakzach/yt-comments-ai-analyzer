@@ -3,9 +3,7 @@ from typing import List, Dict, Any
 
 
 class SummarizeResponse(BaseModel):
-    session_id: str
     summary: str
-    message: str
 
 
 class QuestionResponse(BaseModel):
@@ -23,5 +21,4 @@ class SummarizeRequest(BaseModel):
 
 
 class QuestionRequest(BaseModel):
-    session_id: str
     question: str
