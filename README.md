@@ -5,31 +5,34 @@ This project is a FastAPI application that summarizes YouTube comments using AI 
 
 ## Project Structure
 ```
-app/
-├── __init__.py
-├── main.py
-├── api/
+Thread_summarizer/
+├── app/
 │   ├── __init__.py
-│   └── routes.py
-├── core/
-│   ├── __init__.py
-│   ├── config.py
-│   ├── openai_client.py
-│   └── redis_client.py
-├── services/
-│   ├── __init__.py
-│   ├── fetch_comments.py
-│   ├── summarize.py
-│   ├── vectorize.py
-│   └── search.py
-└── models/
-    ├── __init__.py
-    └── schemas.py
-requirements.txt
-.env
-README.md
-tests/
-└── test_routes.py
+│   ├── main.py
+│   ├── api/
+│   │   ├── __init__.py
+│   │   └── routes.py
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── openai_client.py
+│   │   └── redis_client.py
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── fetch_comments.py
+│   │   ├── summarize.py
+│   │   ├── vectorize.py
+│   │   └── search.py
+│   └── models/
+│       ├── __init__.py
+│       └── schemas.py
+├── tests/
+│   └── test_routes.py
+├── requirements.txt
+├── .env
+├── .env.example
+├── README.md
+├── package.json
 ```
 
 ## Setup Instructions
