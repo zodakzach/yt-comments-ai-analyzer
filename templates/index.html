@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}YouTube Comment Summarizer{% endblock %}
+
+{% block content %}
+  <!-- Hero Section -->
+  <section class="hero bg-base-200 min-h-[60vh]">
+    <div class="hero-content text-center">
+      <div class="w-full max-w-2xl">
+        <h1 class="text-5xl font-bold">Explore YouTube Comments with AI</h1>
+        <p class="py-6 text-lg">
+          Enter a YouTube video URL to get an AI-powered summary of its comment
+          section and engage in a conversation about the comments.
+        </p>
+        <form
+          hx-post="{{ url_for('summarize') }}"
+          hx-target="#summary"
+          hx-swap="innerHTML"
+          class="flex w-full flex-col items-center gap-4 pb-2"
+        >
+          <div class="flex w-full max-w-md flex-col items-stretch text-left">
+            <input
+              id="youtube-url"
+              name="youtube_url"
+              type="url"
+              class="input input-bordered input-primary validator w-full"
+              placeholder="https://www.youtube.com/watch?v=..."
+              pattern="^https:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w\-]{11}$"
+              required
+              title="Must be a valid YouTube video URL"
+            />
+            <p class="text-error validator-hint mt-1 hidden text-sm">
+              Must be a valid YouTube video URL
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            id="submit-btn"
+            class="btn btn-primary"
+            disabled
+          >
+            Submit
+          </button>
+        </form>
+      </div>
+    </div>
+  </section>
+  <!-- Summary Section -->
+  <div id="summary" class="mt-12"></div>
+
+  <!-- Chat Interface -->
+  <div id="chat" class="mt-12"></div>
+{% endblock %}

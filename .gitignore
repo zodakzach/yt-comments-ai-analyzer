@@ -5,3 +5,4 @@ __pycache__
 mvp/
 DS_Store
 .venv
+node_modules

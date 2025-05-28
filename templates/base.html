@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{% block title %}Thread Summarizer{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Tailwind CSS (built) -->
+    <link
+      href="{{ url_for('static', path='css/tailwind.css') }}"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-base-200 text-base-content flex min-h-screen flex-col">
+    <header class="navbar bg-base-100 shadow">
+      <div class="container mx-auto flex items-center justify-between">
+        <a href="/" class="text-xl font-bold">Thread Summarizer</a>
+        {% block nav %}{% endblock %}
+      </div>
+    </header>
+    <main class="container mx-auto flex-1 py-8">
+      {% block content %}{% endblock %}
+    </main>
+    <footer class="footer bg-base-100 text-base-content p-4 text-center">
+      &copy; {{ year | default(2025) }} Thread Summarizer
+    </footer>
+    <!-- JS -->
+    <script src="{{ url_for('static', path='js/bundle.js') }}"></script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "name": "thread_summarizer",
+  "version": "1.0.0",
+  "description": "## Overview This project is a FastAPI application that summarizes YouTube comments using AI models. It fetches comments from YouTube, summarizes them, vectorizes the comments for similarity search, and allows users to query for specific information.",
+  "main": "index.js",
+  "scripts": {
+    "build:js": "rollup --config",
+    "build:css": "postcss static/css/input.tailwind.css -o static/css/tailwind.css",
+    "watch:css": "postcss static/css/input.tailwind.css -o static/css/tailwind.css --watch",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write ."
+  },
+  "keywords": [],
+  "author": "ZodakZach",
+  "license": "MIT",
+  "dependencies": {
+    "htmx.org": "^2.0.4"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@tailwindcss/postcss": "^4.1.7",
+    "daisyui": "^5.0.38",
+    "postcss": "^8.5.3",
+    "postcss-cli": "^11.0.1",
+    "prettier": "^3.5.3",
+    "prettier-plugin-jinja-template": "^2.1.0",
+    "prettier-plugin-tailwindcss": "^0.6.11",
+    "rollup": "^4.41.1",
+    "tailwindcss": "^4.1.7"
+  }
+}

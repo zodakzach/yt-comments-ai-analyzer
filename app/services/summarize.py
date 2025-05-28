@@ -1,5 +1,6 @@
 # app/api/summarizer_service.py
 import logging
+import re
 from openai import OpenAIError, RateLimitError
 
 from app.services.fetch_comments import fetch_all_comments
@@ -9,6 +10,11 @@ from app.services.errors import CommentFetchError, OpenAIInteractionError
 logger = logging.getLogger(__name__)
 
 
+def extract_youtube_id(url: str) -> str | None:
+    match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11})", url)
+    return match.group(1) if match else None
+
+
 async def summarize_comments(video_id: str) -> tuple[str, list[dict]]:
     # 1️⃣ Fetch comments
     try:
@@ -16,7 +22,7 @@ async def summarize_comments(video_id: str) -> tuple[str, list[dict]]:
     except CommentFetchError as err:
         logger.error("Failed to fetch comments for %s: %s", video_id, err)
         # bubble up the domain error
-        raise
+        raise CommentFetchError("Video not found or comments are disabled.")
 
     # 2️⃣ Sort & build prompt
     comments_sorted = sorted(comments, key=lambda x: x["likeCount"], reverse=True)
@@ -40,9 +46,5 @@ async def summarize_comments(video_id: str) -> tuple[str, list[dict]]:
     except OpenAIError as oe:
         logger.error("OpenAI API error for video %s: %s", video_id, oe)
         raise OpenAIInteractionError(f"OpenAI chat completion error: {oe}") from oe
-
-    except Exception:
-        logger.exception("Unexpected error summarizing %s", video_id)
-        raise
 
     return summary, comments_sorted

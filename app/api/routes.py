@@ -1,132 +1,164 @@
+import base64
+import gzip
 import uuid
 import json
 import logging
-from fastapi import APIRouter, HTTPException, Response, Request
+from fastapi import APIRouter, Response, Request, Form
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from app.core.redis_client import redis_client
+from app.core.config import TEMPLATES_DIR
 from app.models.schemas import (
-    SummarizeRequest,
-    SummarizeResponse,
     QuestionRequest,
-    QuestionResponse,
     HealthResponse,
 )
-from app.services.summarize import summarize_comments
-from app.services.vectorize import vectorize_comments
+from app.services.summarize import summarize_comments, extract_youtube_id
+from app.services.session import fetch_summary_and_comments, get_or_compute_embeddings
 from app.services.search import search_similar_comments, generate_answer
 from app.services.errors import (
     EmbeddingError,
     OpenAIInteractionError,
     CommentFetchError,
+    DataCorruptionError,
+    SessionExpiredError,
 )
+
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 
-@router.post("/summarize/", response_model=SummarizeResponse)
-async def summarize(request: SummarizeRequest, response: Response):
-    # 1️⃣ Summarize comments
+@router.get("/", response_class=HTMLResponse)
+async def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+def handle_summarization_error(request: Request, error_msg: str):
+    return templates.TemplateResponse(
+        "summary.html",
+        {"request": request, "error": error_msg, "summary": None},
+        status_code=200,
+    )
+
+
+@router.post("/summarize/", response_class=HTMLResponse)
+async def summarize(
+    request: Request,
+    response: Response,
+    youtube_url: str = Form(...),
+):
+    # 1. Extract video ID from URL
+    video_id = extract_youtube_id(youtube_url)
+    if not video_id:
+        logger.warning("Invalid YouTube URL provided: %s", youtube_url)
+        return handle_summarization_error(request, "Invalid YouTube URL.")
+
+    # 2. Summarize comments
     try:
-        summary, sorted_comments = await summarize_comments(request.youtube_url)
+        summary, sorted_comments = await summarize_comments(video_id)
     except CommentFetchError as e:
         logger.error("Fetch-comments failure: %s", e)
-        raise HTTPException(status_code=502, detail=str(e))
+        return handle_summarization_error(request, f"Failed to fetch comments: {e}")
     except OpenAIInteractionError as e:
         logger.error("OpenAI failure during summarization: %s", e)
-        raise HTTPException(status_code=502, detail=str(e))
+        return handle_summarization_error(
+            request, f"AI error during summarization: {e}"
+        )
     except Exception:
         logger.exception("Unexpected summarization error")
-        raise HTTPException(
-            status_code=500, detail="Internal error summarizing comments."
+        return handle_summarization_error(
+            request, "Internal error summarizing comments."
         )
 
-    # 2️⃣ Vectorize top comments
+    # 3. Store session data in Redis
+    session_id = str(uuid.uuid4())
     try:
+        # Store summary
+        await redis_client.set(f"{session_id}:summary", summary, ex=3600)
+
+        # Compress and encode top comments
         top_comments = sorted_comments[:500]
-        embeddings = await vectorize_comments(top_comments)
-
-    except ValueError as ve:
-        # No valid text to embed → client sent unusable comments
-        logger.warning("No valid comments to embed: %s", ve)
-        raise HTTPException(status_code=400, detail=str(ve))
-
-    except EmbeddingError as ee:
-        # Upstream rate‐limit or API error → treat as bad gateway
-        logger.error("Embedding error: %s", ee)
-        raise HTTPException(status_code=502, detail=str(ee))
-
-    # 3️⃣ Store in Redis
-    try:
-        session_id = str(uuid.uuid4())
-        await redis_client.setex(
-            session_id,
-            3600,
-            json.dumps(
-                {
-                    "summary": summary,
-                    "comments": top_comments,
-                    "embeddings": [e.tolist() for e in embeddings],
-                }
-            ),
-        )
+        comments_json = json.dumps(top_comments)
+        compressed = gzip.compress(comments_json.encode("utf-8"))
+        encoded = base64.b64encode(compressed).decode("utf-8")
+        await redis_client.set(f"{session_id}:comments", encoded, ex=3600)
     except Exception as e:
-        logger.error("Redis error: %s", e)
-        raise HTTPException(status_code=500, detail="Internal error storing session.")
+        logger.error("Redis storage error: %s", e)
+        return handle_summarization_error(request, "Internal error storing session.")
 
-    # 🟢 Set session_id as a secure cookie
+    # 4. Set session cookie and render summary
     response.set_cookie(
         key="session_id",
         value=session_id,
         max_age=3600,
         httponly=True,
         secure=True,
-        samesite="lax",  # Consider "strict" if your frontend doesn't need to send the cookie on GETs from external sites
+        samesite="strict",
+    )
+    return templates.TemplateResponse(
+        "summary.html", {"request": request, "summary": summary, "error": None}
     )
 
-    return {
-        "summary": summary,
-    }
+
+def handle_chat_error(request: Request, msg: str):
+    return templates.TemplateResponse(
+        "chat.html",
+        {
+            "request": request,
+            "error": msg,
+            "answer": None,
+            "similar_comments": None,
+        },
+        status_code=200,
+    )
 
 
-@router.post("/question/", response_model=QuestionResponse)
-async def answer_question(request: QuestionRequest, http_request: Request):
+@router.post("/question/", response_class=HTMLResponse)
+async def answer_question(
+    data: QuestionRequest,
+    request: Request,
+    response: Response,
+):
+    # 1️⃣ Session + data
     try:
-        # 1️⃣ Get session ID from cookie
-        session_id = http_request.cookies.get("session_id")
-        if not session_id:
-            raise HTTPException(status_code=401, detail="Missing session cookie")
+        session_id = request.cookies.get("session_id", "")
+        summary, comments = await fetch_summary_and_comments(session_id)
+    except (SessionExpiredError, DataCorruptionError) as e:
+        return handle_chat_error(str(e))
 
-        # 2️⃣ Fetch session from Redis
-        data_raw = await redis_client.get(session_id)
-        if not data_raw:
-            raise HTTPException(status_code=404, detail="Session expired or not found")
+    # 2️⃣ Embeddings
+    try:
+        embeddings = await get_or_compute_embeddings(session_id, comments)
+    except EmbeddingError as e:
+        return handle_chat_error(str(e))
 
-        try:
-            data = json.loads(data_raw)
-        except json.JSONDecodeError:
-            logger.error("Invalid JSON in Redis for session_id=%s", session_id)
-            raise HTTPException(status_code=500, detail="Corrupted session data")
-
-        # 3️⃣ Search similar comments and generate answer
+    # 3️⃣ Q&A
+    try:
         similar = await search_similar_comments(
-            question=request.question,
-            embeddings=data["embeddings"],
-            comments=data["comments"],
+            question=data.question,
+            embeddings=embeddings,
+            comments=comments,
         )
-        answer = await generate_answer(request.question, similar, data["summary"])
-
-        return {"similar_comments": similar, "answer": answer}
-
-    except OpenAIInteractionError as oe:
-        logger.error("OpenAI API error while answering question: %s", oe)
-        raise HTTPException(status_code=502, detail="OpenAI service unavailable")
-
-    except HTTPException:
-        raise  # Let FastAPI handle these as-is
-
+        answer = await generate_answer(data.question, similar, summary)
+    except EmbeddingError as e:
+        return handle_chat_error(f"Embedding error: {e}")
+    except OpenAIInteractionError:
+        return handle_chat_error("AI service unavailable. Please try again later.")
     except Exception:
-        logger.exception("Unhandled error during /question processing")
-        raise HTTPException(status_code=500, detail="Unexpected error during Q&A")
+        return handle_chat_error("Unexpected error during Q&A. Please try again.")
+
+    # 4️⃣ Success render
+    return templates.TemplateResponse(
+        "chat.html",
+        {
+            "request": request,
+            "error": None,
+            "answer": answer,
+            "similar_comments": similar,
+        },
+        status_code=200,
+    )
 
 
 @router.get("/health", response_model=HealthResponse, tags=["Health"])

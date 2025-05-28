@@ -16,9 +16,5 @@ class HealthResponse(BaseModel):
     redis: str
 
 
-class SummarizeRequest(BaseModel):
-    youtube_url: str
-
-
 class QuestionRequest(BaseModel):
     question: str

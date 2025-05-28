@@ -3,7 +3,7 @@ from typing import List, Dict, Any
 import numpy as np
 from openai import OpenAIError, RateLimitError
 from app.core.openai_client import async_client
-from app.services.errors import OpenAIInteractionError
+from app.services.errors import OpenAIInteractionError, EmbeddingError
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +22,11 @@ async def search_similar_comments(
 
     except RateLimitError as rl:
         logger.warning("OpenAI rate limit while embedding question: %s", rl)
-        raise OpenAIInteractionError(f"Rate limit exceeded: {rl}") from rl
+        raise EmbeddingError(f"Rate limit exceeded: {rl}") from rl
 
     except OpenAIError as oe:
         logger.error("OpenAI embedding error for question '%s': %s", question, oe)
-        raise OpenAIInteractionError(f"Failed to embed question: {oe}") from oe
+        raise EmbeddingError(f"Failed to embed question: {oe}") from oe
 
     # Similarity logic
     q_norm = question_vector / np.linalg.norm(question_vector)
