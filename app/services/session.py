@@ -20,7 +20,7 @@ async def fetch_summary_and_comments(session_id: str) -> Tuple[str, List[dict]]:
             "Session expired or not found. Please summarize a video first."
         )
     try:
-        summary = raw_summary.decode("utf-8")
+        summary = raw_summary
         blob = base64.b64decode(raw_comments)
         comments = json.loads(gzip.decompress(blob).decode("utf-8"))
         return summary, comments

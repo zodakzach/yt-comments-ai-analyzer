@@ -8,10 +8,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from app.core.redis_client import redis_client
 from app.core.config import TEMPLATES_DIR
-from app.models.schemas import (
-    QuestionRequest,
-    HealthResponse,
-)
+from app.models.schemas import HealthResponse
 from app.services.summarize import summarize_comments, extract_youtube_id
 from app.services.session import fetch_summary_and_comments, get_or_compute_embeddings
 from app.services.search import search_similar_comments, generate_answer
@@ -87,8 +84,18 @@ async def summarize(
         logger.error("Redis storage error: %s", e)
         return handle_summarization_error(request, "Internal error storing session.")
 
+    template_resp = templates.TemplateResponse(
+        "summary.html",
+        {
+            "request": request,
+            "summary": summary,
+            "error": None,
+        },
+        status_code=200,
+    )
+
     # 4. Set session cookie and render summary
-    response.set_cookie(
+    template_resp.set_cookie(
         key="session_id",
         value=session_id,
         max_age=3600,
@@ -96,9 +103,7 @@ async def summarize(
         secure=True,
         samesite="strict",
     )
-    return templates.TemplateResponse(
-        "summary.html", {"request": request, "summary": summary, "error": None}
-    )
+    return template_resp
 
 
 def handle_chat_error(request: Request, msg: str):
@@ -116,37 +121,41 @@ def handle_chat_error(request: Request, msg: str):
 
 @router.post("/question/", response_class=HTMLResponse)
 async def answer_question(
-    data: QuestionRequest,
     request: Request,
     response: Response,
+    question: str = Form(...),
 ):
     # 1️⃣ Session + data
     try:
         session_id = request.cookies.get("session_id", "")
         summary, comments = await fetch_summary_and_comments(session_id)
     except (SessionExpiredError, DataCorruptionError) as e:
-        return handle_chat_error(str(e))
+        return handle_chat_error(request, str(e))
 
     # 2️⃣ Embeddings
     try:
         embeddings = await get_or_compute_embeddings(session_id, comments)
     except EmbeddingError as e:
-        return handle_chat_error(str(e))
+        return handle_chat_error(request, str(e))
 
     # 3️⃣ Q&A
     try:
         similar = await search_similar_comments(
-            question=data.question,
+            question=question,
             embeddings=embeddings,
             comments=comments,
         )
-        answer = await generate_answer(data.question, similar, summary)
+        answer = await generate_answer(question, similar, summary)
     except EmbeddingError as e:
-        return handle_chat_error(f"Embedding error: {e}")
+        return handle_chat_error(request, f"Embedding error: {e}")
     except OpenAIInteractionError:
-        return handle_chat_error("AI service unavailable. Please try again later.")
+        return handle_chat_error(
+            request, "AI service unavailable. Please try again later."
+        )
     except Exception:
-        return handle_chat_error("Unexpected error during Q&A. Please try again.")
+        return handle_chat_error(
+            request, "Unexpected error during Q&A. Please try again."
+        )
 
     # 4️⃣ Success render
     return templates.TemplateResponse(
