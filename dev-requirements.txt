@@ -1,7 +1,0 @@
-# Testing
-pytest
-pytest-asyncio
-httpx
-
-# Formatting & linting
-ruff
