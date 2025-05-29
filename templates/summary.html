@@ -1,9 +1,7 @@
 {% if error %}
-  <div class="alert alert-error my-4">
-    {{ error }}
-  </div>
+  <div class="alert alert-error my-4">{{ error }}</div>
 {% elif summary %}
-  <div class="card bg-base-100 shadow my-4">
+  <div class="card bg-base-100 my-4 shadow">
     <div class="card-body">
       <h2 class="card-title">Summary</h2>
       <p>{{ summary }}</p>
@@ -18,7 +16,7 @@
     hx-post="{{ url_for('answer_question') }}"
     hx-target="#chat"
     hx-swap="innerHTML"
-    class="flex flex-col lg:flex-row items-start gap-4 mt-4 w-full"
+    class="mt-4 flex w-full flex-col items-start gap-4 lg:flex-row"
   >
     <textarea
       name="question"
@@ -27,8 +25,6 @@
       placeholder="Ask a question about these comments..."
       required
     ></textarea>
-    <button type="submit" class="btn btn-primary self-end">
-      Ask
-    </button>
+    <button type="submit" class="btn btn-primary self-end">Ask</button>
   </form>
 {% endif %}
