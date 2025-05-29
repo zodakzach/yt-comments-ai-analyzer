@@ -25,7 +25,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
-COMMENT_EMBEDDING_LIMIT = 500 # Max comments to store in redis and embed for Q&A
+COMMENT_EMBEDDING_LIMIT = 500  # Max comments to store in redis and embed for Q&A
 REDIS_EXPIRATION_SECONDS = 3600  # Cache expiration for session data
 
 
@@ -75,14 +75,18 @@ async def summarize(
     session_id = str(uuid.uuid4())
     try:
         # Store summary
-        await redis_client.set(f"{session_id}:summary", summary, ex=REDIS_EXPIRATION_SECONDS)
+        await redis_client.set(
+            f"{session_id}:summary", summary, ex=REDIS_EXPIRATION_SECONDS
+        )
 
         # Compress and encode top comments
         top_comments = sorted_comments[:COMMENT_EMBEDDING_LIMIT]
         comments_json = json.dumps([comment.model_dump() for comment in top_comments])
         compressed = gzip.compress(comments_json.encode("utf-8"))
         encoded = base64.b64encode(compressed).decode("utf-8")
-        await redis_client.set(f"{session_id}:comments", encoded, ex=REDIS_EXPIRATION_SECONDS)
+        await redis_client.set(
+            f"{session_id}:comments", encoded, ex=REDIS_EXPIRATION_SECONDS
+        )
     except Exception as e:
         logger.error("Redis storage error: %s", e)
         return handle_summarization_error(request, "Internal error storing session.")
@@ -137,7 +141,9 @@ async def answer_question(
 
     # 2️⃣ Embeddings
     try:
-        embeddings = await get_or_compute_embeddings(session_id, comments, REDIS_EXPIRATION_SECONDS)
+        embeddings = await get_or_compute_embeddings(
+            session_id, comments, REDIS_EXPIRATION_SECONDS
+        )
     except EmbeddingError as e:
         return handle_chat_error(request, str(e))
 

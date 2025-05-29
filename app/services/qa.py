@@ -97,7 +97,6 @@ Based on the summary and related comments, please provide a clear, concise answe
         content = response.choices[0].message.content or ""
         return content.strip()
 
-
     except RateLimitError as rl:
         logger.warning("OpenAI rate limit during answer generation: %s", rl)
         raise OpenAIInteractionError(

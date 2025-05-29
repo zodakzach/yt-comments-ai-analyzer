@@ -1,5 +1,7 @@
 # app/services/session.py
-import base64, gzip, json
+import base64
+import gzip
+import json
 from typing import Tuple, List
 import numpy as np
 
@@ -31,7 +33,7 @@ async def fetch_summary_and_comments(session_id: str) -> Tuple[str, List[Comment
     Returns:
         Tuple[str, List[Comment]]: The summary string and a list of Comment objects.
     """
-    raw_summary  = await redis_client.get(f"{session_id}:summary")
+    raw_summary = await redis_client.get(f"{session_id}:summary")
     raw_comments = await redis_client.get(f"{session_id}:comments")
 
     if raw_summary is None or raw_comments is None:

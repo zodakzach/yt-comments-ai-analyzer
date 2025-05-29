@@ -55,7 +55,8 @@ async def summarize_comments(video_id: str) -> tuple[str, list[Comment]]:
     # 2️⃣ Sort & build prompt
     comments_sorted = sorted(comments, key=lambda x: x.likeCount, reverse=True)
     prompt = "Summarize the following YouTube comments…\n\n" + "\n".join(
-        f"- [{c.likeCount} likes] {c.text}" for c in comments_sorted[:TOTAL_COMMENTS_LIMIT]
+        f"- [{c.likeCount} likes] {c.text}"
+        for c in comments_sorted[:TOTAL_COMMENTS_LIMIT]
     )
 
     # 3️⃣ Call OpenAI
