@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Dict, Any
 
 
@@ -18,3 +18,9 @@ class HealthResponse(BaseModel):
 
 class QuestionRequest(BaseModel):
     question: str
+
+
+class Comment(BaseModel):
+    author: str = Field(..., description="Display name of the comment author")
+    text: str = Field(..., description="Original text of the comment")
+    likeCount: int = Field(0, description="Number of likes on the comment")

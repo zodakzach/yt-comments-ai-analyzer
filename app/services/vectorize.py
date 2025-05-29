@@ -3,16 +3,38 @@ import re
 import tiktoken
 from openai import RateLimitError, OpenAIError
 from app.core.openai_client import async_client
+from app.models.schemas import Comment
 from app.services.errors import EmbeddingError
 
 
 def clean_text(text: str) -> str:
+    """
+    Remove non-ASCII characters from the input text.
+
+    Args:
+        text (str): The input string to clean.
+
+    Returns:
+        str: The cleaned string containing only ASCII characters.
+    """
     return re.sub(r"[^\x00-\x7F]+", "", text)
 
 
 def is_valid_comment(
     text: str, encoder, max_tokens: int = 8192, max_chars: int = 10000
 ) -> bool:
+    """
+    Validate a comment string for embedding.
+
+    Args:
+        text (str): The comment text to validate.
+        encoder: The tokenizer/encoder for counting tokens.
+        max_tokens (int, optional): Maximum allowed tokens. Defaults to 8192.
+        max_chars (int, optional): Maximum allowed characters. Defaults to 10000.
+
+    Returns:
+        bool: True if the comment is valid, False otherwise.
+    """
     if not isinstance(text, str):
         return False
     text = text.strip()
@@ -27,17 +49,30 @@ def is_valid_comment(
     return True
 
 
-async def vectorize_comments(comments: list[dict]) -> list[np.ndarray]:
+async def vectorize_comments(comments: list[Comment]) -> list[np.ndarray]:
     """
-    Async-ify embedding loop so you can `await` the OpenAI calls.
-    Returns a list of numpy arrays (one per valid comment).
+    Generate embeddings for a list of comments using OpenAI's embedding API.
+
+    This function cleans and validates each comment, batches them according to
+    API constraints, and asynchronously requests embeddings. Returns a list of
+    numpy arrays, one per valid comment.
+
+    Args:
+        comments (list[Comment]): List of Comment objects to embed.
+
+    Raises:
+        ValueError: If no valid comments are found.
+        EmbeddingError: If the OpenAI API returns an error or no embeddings.
+
+    Returns:
+        list[np.ndarray]: List of embedding vectors as numpy arrays.
     """
     encoder = tiktoken.encoding_for_model("text-embedding-3-small")
 
     # 1) Clean & filter
     texts: list[str] = []
     for comment in comments:
-        raw = comment.get("text", "")
+        raw = comment.text
         cleaned = clean_text(raw).strip()
         if is_valid_comment(cleaned, encoder):
             texts.append(cleaned)

@@ -1,13 +1,30 @@
+from typing import List
 import httpx
 from app.core.config import settings  # Use centralized config
 from app.services.errors import CommentFetchError
+from app.models.schemas import Comment
 
 BASE_URL = "https://www.googleapis.com/youtube/v3/commentThreads"
 
 
-async def fetch_all_comments(video_id: str) -> list[dict]:
+async def fetch_all_comments(video_id: str) -> list[Comment]:
+    """
+    Fetch all top-level comments for a given YouTube video using the YouTube Data API.
+
+    This function paginates through all available comments, parses them into Comment objects,
+    and returns the complete list. Raises CommentFetchError on network or API errors.
+
+    Args:
+        video_id (str): The YouTube video ID.
+
+    Raises:
+        CommentFetchError: If a network error, HTTP error, or invalid response occurs.
+
+    Returns:
+        list[Comment]: List of Comment objects for the video.
+    """
     YT_API_KEY = settings.YOUTUBE_API_KEY
-    comments = []
+    comments: List[Comment] = []
     next_page_token = None
 
     async with httpx.AsyncClient(timeout=10.0) as client:
@@ -41,14 +58,13 @@ async def fetch_all_comments(video_id: str) -> list[dict]:
 
             for item in data.get("items", []):
                 top = item["snippet"]["topLevelComment"]["snippet"]
-                comments.append(
-                    {
-                        "author": top["authorDisplayName"],
-                        "text": top["textOriginal"],
-                        "likeCount": top.get("likeCount", 0),
-                        "publishedAt": top["publishedAt"],
-                    }
+                # instantiate a Comment model—this will validate & parse publishedAt
+                comment = Comment(
+                    author=top["authorDisplayName"],
+                    text=top["textOriginal"],
+                    likeCount=top.get("likeCount", 0),
                 )
+                comments.append(comment)
 
             next_page_token = data.get("nextPageToken")
             if not next_page_token:

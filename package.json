@@ -1,5 +1,5 @@
 {
-  "name": "thread_summarizer",
+  "name": "yt-comments-ai-analyzer",
   "version": "1.0.0",
   "description": "## Overview This project is a FastAPI application that summarizes YouTube comments using AI models. It fetches comments from YouTube, summarizes them, vectorizes the comments for similarity search, and allows users to query for specific information.",
   "main": "index.js",

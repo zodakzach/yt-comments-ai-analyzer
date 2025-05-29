@@ -1,5 +1,5 @@
 [project]
-name = "thread-summarizer"
+name = "yt-comments-ai-analyzer"
 version = "0.1.0"
 description = "This project is a FastAPI application that summarizes YouTube comments using AI models."
 readme = "README.md"

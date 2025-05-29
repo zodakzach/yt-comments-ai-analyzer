@@ -1,8 +1,9 @@
 import logging
-from typing import List, Dict, Any
+from typing import List
 import numpy as np
 from openai import OpenAIError, RateLimitError
 from app.core.openai_client import async_client
+from app.models.schemas import Comment
 from app.services.errors import OpenAIInteractionError, EmbeddingError
 
 logger = logging.getLogger(__name__)
@@ -11,9 +12,27 @@ logger = logging.getLogger(__name__)
 async def search_similar_comments(
     question: str,
     embeddings: List[np.ndarray],
-    comments: List[Dict[str, Any]],
+    comments: List[Comment],
     top_k: int = 5,
-) -> List[Dict[str, Any]]:
+) -> List[Comment]:
+    """
+    Find the most similar comments to a question using cosine similarity.
+
+    This function embeds the question, computes cosine similarity between the question
+    and each comment embedding, and returns the top_k most similar comments.
+
+    Args:
+        question (str): The user's question.
+        embeddings (List[np.ndarray]): List of comment embedding vectors.
+        comments (List[Comment]): List of Comment objects corresponding to embeddings.
+        top_k (int, optional): Number of top similar comments to return. Defaults to 5.
+
+    Raises:
+        EmbeddingError: If embedding the question fails.
+
+    Returns:
+        List[Comment]: The top_k most similar Comment objects.
+    """
     try:
         response = await async_client.embeddings.create(
             input=[question], model="text-embedding-3-small"
@@ -38,9 +57,26 @@ async def search_similar_comments(
 
 
 async def generate_answer(
-    question: str, relevant_comments: List[Dict[str, Any]], summary: str
+    question: str, relevant_comments: List[Comment], summary: str
 ) -> str:
-    related_text = "\n".join(f"- {c['text']}" for c in relevant_comments)
+    """
+    Generate an answer to a question using a video summary and relevant comments.
+
+    This function builds a prompt including the video summary, relevant comments,
+    and the user's question, then calls the OpenAI API to generate an answer.
+
+    Args:
+        question (str): The user's question.
+        relevant_comments (List[Comment]): List of comments most relevant to the question.
+        summary (str): The summary of the video.
+
+    Raises:
+        OpenAIInteractionError: If the OpenAI API call fails.
+
+    Returns:
+        str: The generated answer from the language model.
+    """
+    related_text = "\n".join(f"- {c.text}" for c in relevant_comments)
     prompt = f"""
 Video Summary:
 {summary}
@@ -58,7 +94,9 @@ Based on the summary and related comments, please provide a clear, concise answe
             model="gpt-4.1-mini",
             messages=[{"role": "user", "content": prompt}],
         )
-        return response.choices[0].message.content.strip()
+        content = response.choices[0].message.content or ""
+        return content.strip()
+
 
     except RateLimitError as rl:
         logger.warning("OpenAI rate limit during answer generation: %s", rl)

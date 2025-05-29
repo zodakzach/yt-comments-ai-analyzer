@@ -1,4 +1,4 @@
-# Thread Summarizer FastAPI
+# YouTube Comments AI Analyzer FastAPI App
 
 ## Overview
 
