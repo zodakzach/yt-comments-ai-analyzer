@@ -21,54 +21,57 @@ logger = logging.getLogger(__name__)
 REDIS_EXPIRATION_SECONDS = 3600
 
 
-async def fetch_summary_and_comments(session_id: str) -> Tuple[str, List[Comment]]:
+async def fetch_summary_and_comments(
+    session_id: str
+) -> Tuple[str, List[Comment]]:
     """
     Retrieve the summary and comments for a given session from Redis.
 
-    The comments are stored as a base64-encoded, gzipped JSON blob.
-    This function decodes, decompresses, and parses the comments,
-    and returns them as validated Comment objects.
-
-    Args:
-        session_id (str): The session identifier.
+    Uses the single "{session_id}:session" blob, which contains:
+      {
+        "summary": "...",
+        "comments": [ {Comment.dict()}, ... ],
+        "total_comments": int,
+        "sentiment_stats": {...}
+      }
 
     Raises:
-        SessionExpiredError: If the session data is missing in Redis.
-        DataCorruptionError: If the comments data is corrupted or cannot be parsed.
-
-    Returns:
-        Tuple[str, List[Comment]]: The summary string and a list of Comment objects.
+      - SessionExpiredError: if the session blob is missing
+      - DataCorruptionError: if the blob can't be decoded or parsed
     """
-    raw_summary = await redis_client.get(f"{session_id}:summary")
-    raw_comments = await redis_client.get(f"{session_id}:comments")
+    # 1) fetch the one blob
+    try:
+        raw = await redis_client.get(f"{session_id}:session")
+    except Exception as err:
+        logger.error("Redis error fetching session %s: %s", session_id, err)
+        raise SessionExpiredError("Internal error fetching session") from err
 
-    if raw_summary is None or raw_comments is None:
+    if raw is None:
         raise SessionExpiredError(
             "Session expired or not found. Please summarize a video first."
         )
 
-    # raw_summary is already a str
-    summary: str = raw_summary
-
+    # 2) decode & decompress
     try:
-        # 1) Base64-decode the blob (raw_comments is a str)
-        gzipped_bytes = base64.b64decode(raw_comments)
-
-        # 2) Decompress to get the original JSON bytes
-        json_bytes = gzip.decompress(gzipped_bytes)
-
-        # 3) Parse into Python list of dicts
-        comment_dicts = json.loads(json_bytes.decode("utf-8"))
-
-        # 4) Instantiate Comment models (will validate types)
-        comments: List[Comment] = [Comment(**c) for c in comment_dicts]
-
-        return summary, comments
-
-    except Exception as e:
+        compressed = base64.b64decode(raw)
+        payload = gzip.decompress(compressed)
+        data = json.loads(payload.decode("utf-8"))
+    except Exception as err:
+        logger.error("Error decoding session blob %s: %s", session_id, err)
         raise DataCorruptionError(
-            f"Corrupted session data. Please try summarizing again. ({e})"
-        )
+            "Corrupted session data. Please try summarizing again."
+        ) from err
+
+    # 3) extract summary + comments
+    try:
+        summary = data["summary"]
+        comment_dicts = data["comments"]
+        comments = [Comment(**c) for c in comment_dicts]
+    except Exception as err:
+        logger.error("Malformed session data %s: %s", session_id, err)
+        raise DataCorruptionError("Invalid session payload structure") from err
+
+    return summary, comments
 
 
 async def get_or_compute_embeddings(

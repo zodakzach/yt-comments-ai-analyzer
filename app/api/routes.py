@@ -180,7 +180,6 @@ async def get_session(
             "top_comments": data["comments"][:5],
             "total_comments": data["total_comments"],
             "sentiment_stats": data["sentiment_stats"],
-            "error": None,
             "session_id": session_id,
         },
         status_code=200,
@@ -190,11 +189,12 @@ async def get_session(
 @router.post("/question/", response_class=HTMLResponse)
 async def answer_question(
     request: Request,
-    session_id: str = Query(None, description="Per-tab session ID"),
+    session_id: str = Form(..., description="Per-tab session ID"),
     question: str = Form(...),
 ):
     # 1️⃣ Session + data
     try:
+        print(session_id)
         summary, comments = await fetch_summary_and_comments(session_id)
     except (SessionExpiredError, DataCorruptionError) as e:
         return handle_chat_error(request, str(e))
@@ -229,7 +229,6 @@ async def answer_question(
         "message_partial.html",
         {
             "request": request,
-            "error": None,
             "question": question,
             "answer": answer,
             "similar_comments": similar,
