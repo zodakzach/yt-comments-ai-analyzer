@@ -2,8 +2,10 @@
 import base64
 import gzip
 import json
-from typing import Tuple, List
+import uuid
+from typing import Dict, Tuple, List
 import numpy as np
+import logging
 
 from app.core.redis_client import redis_client
 from app.models.schemas import Comment
@@ -12,7 +14,11 @@ from app.services.errors import (
     SessionExpiredError,
     DataCorruptionError,
     EmbeddingError,
+    SessionStorageError,
 )
+
+logger = logging.getLogger(__name__)
+REDIS_EXPIRATION_SECONDS = 3600
 
 
 async def fetch_summary_and_comments(session_id: str) -> Tuple[str, List[Comment]]:
@@ -66,7 +72,9 @@ async def fetch_summary_and_comments(session_id: str) -> Tuple[str, List[Comment
 
 
 async def get_or_compute_embeddings(
-    session_id: str, comments: List[Comment], ttl_seconds: int = 3600
+    session_id: str,
+    comments: List[Comment],
+    ttl_seconds: int = REDIS_EXPIRATION_SECONDS,
 ) -> List[np.ndarray]:
     """
     Retrieve or compute embeddings for a list of comments, caching the result in Redis.
@@ -127,3 +135,48 @@ async def get_or_compute_embeddings(
         pass
 
     return embeddings
+
+
+async def create_full_session(
+    summary: str,
+    comments: List[Comment],
+    total_comments: int,
+    sentiment_stats: Dict[str, float],
+    expiration: int = REDIS_EXPIRATION_SECONDS,
+) -> str:
+    """
+    Stores everything needed to re-render the summary UI in one Redis blob:
+      - summary text
+      - list of Comment dicts (with sentiment)
+      - total_comments count
+      - sentiment_stats (percent positive/neutral/negative)
+
+    Raises:
+      - DataCorruptionError: on serialization/compression failure
+      - SessionStorageError: on any Redis failure
+    """
+    session_id = uuid.uuid4().hex
+    payload = {
+        "summary": summary,
+        "comments": [c.model_dump() for c in comments],
+        "total_comments": total_comments,
+        "sentiment_stats": sentiment_stats,
+    }
+
+    # Serialize, compress, encode
+    try:
+        raw = json.dumps(payload).encode("utf-8")
+        compressed = gzip.compress(raw)
+        blob = base64.b64encode(compressed).decode("utf-8")
+    except (TypeError, ValueError, OSError, UnicodeError) as err:
+        logger.error("Serialization error preparing session %s: %s", session_id, err)
+        raise DataCorruptionError("Failed to prepare session payload") from err
+
+    # Store single blob under one key
+    try:
+        await redis_client.set(f"{session_id}:session", blob, ex=expiration)
+    except Exception as err:
+        logger.error("Error storing full session %s: %s", session_id, err)
+        raise SessionStorageError("Could not persist full session data") from err
+
+    return session_id

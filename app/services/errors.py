@@ -31,3 +31,9 @@ class EmbeddingError(Exception):
     """Raised when something goes wrong generating embeddings."""
 
     pass
+
+
+class SessionStorageError(Exception):
+    """Raised when storing or retrieving a session fails."""
+
+    pass

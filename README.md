@@ -5,61 +5,6 @@
 This project is a FastAPI application that summarizes YouTube comments using AI models. It fetches comments from YouTube, summarizes them, vectorizes the comments for similarity search, and allows users to query for specific information.  
 **All main endpoints are HTMX endpoints and return rendered HTML templates, not raw JSON.**
 
-## Project Structure
-
-```
-yt-comments-ai-analyzer/
-├── app/
-│   ├── __init__.py
-│   ├── main.py
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── routes.py
-│   ├── core/
-│   │   ├── __init__.py
-│   │   ├── config.py
-│   │   ├── logging.py
-│   │   ├── openai_client.py
-│   │   └── redis_client.py
-│   ├── models/
-│   │   ├── __init__.py
-│   │   └── schemas.py
-│   └── services/
-│       ├── __init__.py
-│       ├── errors.py
-│       ├── fetch_comments.py
-│       ├── qa.py
-│       ├── session.py
-│       ├── summarize.py
-│       └── vectorize.py
-├── mvp/
-│   └── mvp.ipynb
-├── static/
-│   ├── css/
-│   │   ├── input.tailwind.css
-│   │   └── tailwind.css
-│   └── js/
-│       ├── bundle.js
-│       ├── bundle.js.map
-│       └── index.js
-├── templates/
-│   ├── base.html
-│   ├── chat.html
-│   ├── index.html
-│   └── summary.html
-├── tests/
-│   └── test_routes.py
-├── .env
-├── .env.example
-├── package.json
-├── package-lock.json
-├── postcss.config.mjs
-├── pyproject.toml
-├── README.md
-├── rollup.config.mjs
-├── uv.lock
-```
-
 ## Setup Instructions
 
 1. **Clone the repository**
@@ -104,7 +49,7 @@ yt-comments-ai-analyzer/
   - `/summarize/` - Summarize YouTube comments and start a session (returns a summary template).
   - `/question/` - Ask a question about the summarized comments using your session (returns an answer template).
   - `/health` - Health check endpoint
-  
+
 ## Testing
 
 - Tests are located in the `tests/` directory.

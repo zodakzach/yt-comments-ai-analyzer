@@ -1,0 +1,54 @@
+<div id="chat-block" data-session-id="{{ session_id }}">
+  <div class="card bg-base-100 p-4 shadow">
+    <h2 class="card-title">Chat About Comments</h2>
+
+    <!-- Message list (starts empty) -->
+    <div
+      id="messages"
+      class="mb-4 max-h-96 space-y-2 overflow-auto"
+      hx-on="htmx:afterSwap: this.scrollTop = this.scrollHeight"
+    ></div>
+
+    <!-- New message form -->
+    <form
+      hx-post="{{ url_for('answer_question') }}"
+      hx-target="#messages"
+      hx-swap="beforeend"
+      hx-vals='{"session_id":"{{ session_id }}"}'
+      class="flex gap-2"
+    >
+      <input
+        name="question"
+        type="text"
+        required
+        placeholder="Ask something about the comments…"
+        class="input input-bordered flex-1"
+      />
+      <button type="submit" class="btn btn-primary">Send</button>
+    </form>
+  </div>
+
+  <!-- Navigation -->
+  <div class="mt-4 flex justify-center gap-4">
+    <button
+      class="btn btn-outline"
+      hx-get="{{ url_for('get_session') }}"
+      hx-target="#main-block"
+      hx-swap="innerHTML"
+      hx-vals='{"session_id":"{{ session_id }}"}'
+    >
+      ← Back to Summary
+    </button>
+
+    <div
+      hx-boost="true"
+      hx-target="#main-block"
+      hx-swap="outerHTML"
+      hx-select="#main-block"
+    >
+      <a href="{{ url_for('home') }}" class="btn btn-outline">
+        Analyze Another Video
+      </a>
+    </div>
+  </div>
+</div>

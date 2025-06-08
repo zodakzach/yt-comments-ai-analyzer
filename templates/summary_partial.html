@@ -1,0 +1,104 @@
+<!-- Container for the entire section -->
+<div
+  id="summary-block"
+  data-session-id="{{ session_id }}"
+  class="mt-6 max-w-6xl space-y-6 md:min-w-6xl"
+>
+  <div class="card bg-base-100 card-border p-2 shadow">
+    <div class="card-body">
+      <h2 class="card-title">AI Summary</h2>
+      <p>{{ summary }}</p>
+    </div>
+  </div>
+
+  <!-- Stats Section -->
+  <div
+    class="stats stats-vertical md:stats-horizontal card bg-base-100 card-border w-full gap-4 p-4 shadow"
+  >
+    <!-- Total Comments -->
+    <div class="stat">
+      <div class="stat-title">Total Comments</div>
+      <div class="stat-value">{{ total_comments }}</div>
+    </div>
+
+    <!-- Positive Comments % -->
+    <div class="stat">
+      <div class="stat-title">Positive Comments</div>
+      <div class="stat-value">{{ sentiment_stats.positive | round(1) }}%</div>
+    </div>
+
+    <!-- Negative Comments % -->
+    <div class="stat">
+      <div class="stat-title">Negative Comments</div>
+      <div class="stat-value">{{ sentiment_stats.negative | round(1) }}%</div>
+    </div>
+
+    <!-- Neutral Comments % -->
+    <div class="stat">
+      <div class="stat-title">Neutral Comments</div>
+      <div class="stat-value">{{ sentiment_stats.neutral | round(1) }}%</div>
+    </div>
+  </div>
+
+  <!-- Top Comments Section -->
+  <div class="card card-border bg-base-100 w-full shadow">
+    <div class="card-body">
+      <h2 class="card-title">Top 5 Comments</h2>
+      <p class="text-gray-600">
+        Top 5 most liked and engaging comments from the video
+      </p>
+    </div>
+    <div class="card-body pt-0">
+      <div class="space-y-4">
+        {% for c in top_comments %}
+          <div>
+            <div class="flex gap-3">
+              <div class="flex-1">
+                <div class="mb-1 flex items-center gap-2">
+                  <span class="font-medium">{{ c.author }}</span>
+                  {# sentiment badge #}
+                  {% set comp = c.sentiment.compound %}
+                  {% if comp >= 0.05 %}
+                    <span class="badge badge-success">Positive</span>
+                  {% elif comp <= -0.05 %}
+                    <span class="badge badge-error">Negative</span>
+                  {% else %}
+                    <span class="badge badge-neutral">Neutral</span>
+                  {% endif %}
+                </div>
+                <p class="mb-2 text-gray-700">{{ c.text }}</p>
+                <div class="flex items-center gap-4 text-sm text-gray-500">
+                  <span>👍 {{ c.likeCount }}</span>
+                </div>
+              </div>
+            </div>
+            {% if not loop.last %}<div class="divider"></div>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Buttons must carry the session_id forward -->
+  <div class="mt-4 flex justify-center gap-4">
+    <button
+      class="btn btn-primary"
+      hx-get="{{ url_for('chat') }}"
+      hx-target="#main-block"
+      hx-swap="innerHTML"
+      hx-vals='{"session_id":"{{ session_id }}"}'
+    >
+      Ask Questions About Comments
+    </button>
+    <div
+      hx-boost="true"
+      hx-target="#main-block"
+      hx-swap="outerHTML"
+      hx-select="#main-block"
+    >
+      <a href="{{ url_for('home') }}" class="btn btn-outline">
+        Analyze Another Video
+      </a>
+    </div>
+  </div>
+</div>

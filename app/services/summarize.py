@@ -23,6 +23,7 @@ def extract_youtube_id(url: str) -> str | None:
     Returns:
         str | None: The extracted video ID if found, otherwise None.
     """
+    logger.info(f"Extracting video ID from URL: {url}")
     match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11})", url)
     return match.group(1) if match else None
 
