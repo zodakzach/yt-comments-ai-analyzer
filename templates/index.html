@@ -86,8 +86,7 @@
 {% endblock %}
 {% block scripts %}
   <script>
-    // Enable the Analyze button only when the URL input is valid
-    document.addEventListener("DOMContentLoaded", () => {
+    function initValidator() {
       const input = document.querySelector("#youtube-url");
       const submitBtn = document.querySelector("#submit-btn");
       if (!input || !submitBtn) return;
@@ -99,8 +98,19 @@
       // Initial state
       toggleSubmit();
 
-      // Re-validate on every keystroke
+      // Make sure we don’t double‐bind listeners
+      input.removeEventListener("input", toggleSubmit);
       input.addEventListener("input", toggleSubmit);
+    }
+
+    // Run on first load
+    document.addEventListener("DOMContentLoaded", initValidator);
+
+    // Re-run after any HTMX swap of #main-block
+    document.body.addEventListener("htmx:afterSwap", (evt) => {
+      if (evt.detail.target.id === "main-block") {
+        initValidator();
+      }
     });
   </script>
 {% endblock %}
