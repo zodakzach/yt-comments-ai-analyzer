@@ -1,73 +1,118 @@
+import asyncio
 from typing import List
 import httpx
-from app.core.config import settings  # Use centralized config
+from app.core.config import settings
 from app.services.errors import CommentFetchError
 from app.models.schemas import Comment
 
-BASE_URL = "https://www.googleapis.com/youtube/v3/commentThreads"
+BASE_THREADS = "https://www.googleapis.com/youtube/v3/commentThreads"
+BASE_COMMENTS = "https://www.googleapis.com/youtube/v3/comments"
+SEM = asyncio.Semaphore(8)  # limit concurrency
 
-
-async def fetch_all_comments(video_id: str) -> list[Comment]:
-    """
-    Fetch all top-level comments for a given YouTube video using the YouTube Data API.
-
-    This function paginates through all available comments, parses them into Comment objects,
-    and returns the complete list. Raises CommentFetchError on network or API errors.
-
-    Args:
-        video_id (str): The YouTube video ID.
-
-    Raises:
-        CommentFetchError: If a network error, HTTP error, or invalid response occurs.
-
-    Returns:
-        list[Comment]: List of Comment objects for the video.
-    """
-    YT_API_KEY = settings.YOUTUBE_API_KEY
+async def fetch_all_comments(video_id: str) -> List[Comment]:
+    api_key = settings.YOUTUBE_API_KEY
     comments: List[Comment] = []
-    next_page_token = None
+    page_token: str | None = None
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=10.0, http2=True) as client:
         while True:
-            params = {
-                "part": "snippet",
-                "videoId": video_id,
-                "maxResults": 100,
-                "key": YT_API_KEY,
-                "pageToken": next_page_token,
-            }
+            # 1) grab one page of threads (with first 5 replies inline)
+            resp = await client.get(
+                BASE_THREADS,
+                params={
+                    "part": "snippet,replies",
+                    "videoId": video_id,
+                    "maxResults": 100,
+                    "key": api_key,
+                    "pageToken": page_token,
+                },
+            )
             try:
-                response = await client.get(BASE_URL, params=params)
-                response.raise_for_status()
-            except httpx.RequestError as exc:
-                # network-level (DNS, timeout, etc.)
-                raise CommentFetchError(
-                    f"Network error fetching comments: {exc}"
-                ) from exc
-            except httpx.HTTPStatusError as exc:
-                # non-2xx status code
-                text = exc.response.text
-                code = exc.response.status_code
-                raise CommentFetchError(f"YouTube API returned {code}: {text}") from exc
+                resp.raise_for_status()
+                data = resp.json()
+            except Exception as e:
+                raise CommentFetchError(f"YT page error: {e}") from e
 
-            # at this point we know status_code == 200
-            try:
-                data = response.json()
-            except ValueError as exc:
-                raise CommentFetchError("Invalid JSON in YouTube response") from exc
-
-            for item in data.get("items", []):
+            items = data.get("items", [])
+            # collect parentIds that actually have more replies
+            tasks = []
+            for item in items:
                 top = item["snippet"]["topLevelComment"]["snippet"]
-                # instantiate a Comment model—this will validate & parse publishedAt
-                comment = Comment(
-                    author=top["authorDisplayName"],
-                    text=top["textOriginal"],
-                    likeCount=top.get("likeCount", 0),
+                comments.append(
+                    Comment(
+                        author=top["authorDisplayName"],
+                        text=top["textOriginal"],
+                        likeCount=top.get("likeCount", 0),
+                    )
                 )
-                comments.append(comment)
 
-            next_page_token = data.get("nextPageToken")
-            if not next_page_token:
+                # inline replies (up to 5)
+                for rep in item.get("replies", {}).get("comments", []):
+                    sn = rep["snippet"]
+                    comments.append(
+                        Comment(
+                            author=sn["authorDisplayName"],
+                            text=sn["textOriginal"],
+                            likeCount=sn.get("likeCount", 0),
+                        )
+                    )
+
+                # schedule a full‐fetch only if there are more replies
+                if item["snippet"].get("totalReplyCount", 0) > len(item.get("replies", {}).get("comments", [])):
+                    parent_id = item["snippet"]["topLevelComment"]["id"]
+                    tasks.append(_fetch_all_replies(parent_id, client, api_key))
+
+            # 2) fire off all the “extra replies” jobs in parallel
+            if tasks:
+                results = await asyncio.gather(*tasks)
+                for reply_list in results:
+                    comments.extend(reply_list)
+
+            # 3) next page?
+            page_token = data.get("nextPageToken")
+            if not page_token:
                 break
 
     return comments
+
+
+async def _fetch_all_replies(
+    parent_id: str, client: httpx.AsyncClient, api_key: str
+) -> List[Comment]:
+    replies: List[Comment] = []
+    token: str | None = None
+
+    # bound concurrency
+    async with SEM:
+        while True:
+            resp = await client.get(
+                BASE_COMMENTS,
+                params={
+                    "part": "snippet",
+                    "parentId": parent_id,
+                    "maxResults": 100,
+                    "key": api_key,
+                    "pageToken": token,
+                },
+            )
+            try:
+                resp.raise_for_status()
+                data = resp.json()
+            except Exception as e:
+                raise CommentFetchError(f"Reply fetch error: {e}") from e
+
+            for item in data.get("items", []):
+                sn = item["snippet"]
+                replies.append(
+                    Comment(
+                        author=sn["authorDisplayName"],
+                        text=sn["textOriginal"],
+                        likeCount=sn.get("likeCount", 0),
+                    )
+                )
+
+            token = data.get("nextPageToken")
+            if not token:
+                break
+
+    return replies

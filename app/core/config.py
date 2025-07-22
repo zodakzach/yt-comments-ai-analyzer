@@ -1,26 +1,40 @@
 # app/core/config.py
 from pathlib import Path
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from dotenv import load_dotenv
+import os
 
-# Project base paths
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+# ─── Paths ──────────────────────────────────────────────────────────────────────
+BASE_DIR      = Path(__file__).resolve().parent.parent.parent
 TEMPLATES_DIR = BASE_DIR / "templates"
-STATIC_DIR = BASE_DIR / "static"
+STATIC_DIR    = BASE_DIR / "static"
+ENV_PATH      = BASE_DIR / ".env"
 
+# ─── Load .env ──────────────────────────────────────────────────────────────────
+if not ENV_PATH.exists():
+    raise FileNotFoundError(f".env file not found at {ENV_PATH}")
+# override=True makes sure any existing os.environ value
+# is replaced by what's in your .env
+load_dotenv(dotenv_path=str(ENV_PATH), encoding="utf-8", override=True)
 
-# Environment & API settings
-class Settings(BaseSettings):
-    YOUTUBE_API_KEY: str
-    THREAD_OPENAI_API_KEY: str
+# ─── Settings class ────────────────────────────────────────────────────────────
+class Settings:
+    def __init__(self):
+        # Will KeyError if missing; fail fast
+        self.YOUTUBE_API_KEY         = os.environ["YOUTUBE_API_KEY"]
+        self.THREAD_OPENAI_API_KEY   = os.environ["THREAD_OPENAI_API_KEY"]
+        self.UPSTASH_REDIS_REST_URL  = os.environ["UPSTASH_REDIS_REST_URL"]
+        self.UPSTASH_REDIS_REST_TOKEN= os.environ["UPSTASH_REDIS_REST_TOKEN"]
 
-    UPSTASH_REDIS_REST_URL: str
-    UPSTASH_REDIS_REST_TOKEN: str
+        # sanity‐check empties
+        for name in (
+            "YOUTUBE_API_KEY",
+            "THREAD_OPENAI_API_KEY",
+            "UPSTASH_REDIS_REST_URL",
+            "UPSTASH_REDIS_REST_TOKEN",
+        ):
+            val = getattr(self, name)
+            if not val:
+                raise RuntimeError(f"Env var {name!r} is empty")
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",  # Ignore undeclared vars in .env
-    )
-
-
+# single shared instance
 settings = Settings()

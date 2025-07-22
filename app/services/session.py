@@ -21,9 +21,7 @@ logger = logging.getLogger(__name__)
 REDIS_EXPIRATION_SECONDS = 3600
 
 
-async def fetch_summary_and_comments(
-    session_id: str
-) -> Tuple[str, List[Comment]]:
+async def fetch_summary_and_comments(session_id: str) -> Tuple[str, List[Comment]]:
     """
     Retrieve the summary and comments for a given session from Redis.
 

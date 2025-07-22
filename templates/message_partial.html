@@ -1,9 +1,29 @@
-<div class="flex gap-2">
-  <strong>You:</strong>
-  <p>{{ question }}</p>
+{# User question #}
+<div class="chat chat-end">
+  <div class="chat-header">You</div>
+  <div class="chat-bubble chat-bubble-neutral">{{ question }}</div>
 </div>
 
-<div class="flex gap-2">
-  <strong>Bot:</strong>
-  <p>{{ answer }}</p>
+{# Bot response #}
+<div class="chat chat-start">
+  <div class="chat-header">AI Assistant</div>
+  <div class="chat-bubble chat-bubble-primary">{{ answer }}</div>
 </div>
+
+{# Similar comments #}
+{% if similar_comments %}
+  <div class="px-2 py-2">
+    <div class="card bg-base-200 shadow-inner">
+      <div class="card-body p-3">
+        <h3 class="mb-2 font-semibold">Relevant Comments:</h3>
+        <ul class="list-inside list-disc space-y-1">
+          {% for c in similar_comments %}
+            <li class="text-sm">
+              <span class="font-medium">{{ c.author }}:</span> {{ c.text }}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+{% endif %}

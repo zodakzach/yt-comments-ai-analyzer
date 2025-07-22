@@ -2,12 +2,14 @@
 <div
   id="summary-block"
   data-session-id="{{ session_id }}"
-  class="mt-6 max-w-6xl space-y-6 md:min-w-6xl"
+  class="space-y-6 py-8"
 >
   <div class="card bg-base-100 card-border p-2 shadow">
     <div class="card-body">
       <h2 class="card-title">AI Summary</h2>
-      <p>{{ summary }}</p>
+      <p class="prose text-base leading-relaxed whitespace-pre-line">
+        {{ summary }}
+      </p>
     </div>
   </div>
 
@@ -44,7 +46,7 @@
   <div class="card card-border bg-base-100 w-full shadow">
     <div class="card-body">
       <h2 class="card-title">Top 5 Comments</h2>
-      <p class="text-gray-600">
+      <p class="text-gray-400">
         Top 5 most liked and engaging comments from the video
       </p>
     </div>
@@ -66,7 +68,7 @@
                     <span class="badge badge-neutral">Neutral</span>
                   {% endif %}
                 </div>
-                <p class="mb-2 text-gray-700">{{ c.text }}</p>
+                <p class="mb-2 text-gray-400">{{ c.text }}</p>
                 <div class="flex items-center gap-4 text-sm text-gray-500">
                   <span>👍 {{ c.likeCount }}</span>
                 </div>

@@ -2,87 +2,87 @@
 {% block title %}YouTube Comment Summarizer{% endblock %}
 
 {% block content %}
-  <div
-    class="flex min-h-[70vh] flex-col items-center justify-center overscroll-none"
-    id="main-block"
-  >
-    <section class="hero bg-base-200" id="hero-section">
-      <div class="hero-content text-center">
-        <div class="w-full max-w-2xl">
-          <h1 class="text-5xl font-bold">YouTube Comments Analyzer</h1>
-          <p class="pt-4 text-lg">
-            Get AI-powered insights from YouTube video comments. Analyze
-            sentiment, discover trends, and chat about the findings.
-          </p>
-        </div>
-      </div>
-    </section>
-    <section
-      class="card bg-base-100 card-border mx-auto max-w-2xl p-6 shadow md:min-w-2xl"
-      id="form-section"
-      hx-ext="response-targets"
-    >
-      <h2 class="card-title text-center text-2xl">Analyze YouTube Comments</h2>
-      <p class="card-content pb-4 text-sm font-light">
-        Enter a YouTube video URL to get started with AI-powered comment
-        analysis
-      </p>
-
-      <form
-        hx-post="{{ url_for('summarize') }}"
-        hx-target="#main-block"
-        hx-target-error="#response-error"
-        hx-swap="innerHTML"
-        hx-disabled-elt="find input[type='url'], find button"
-        hx-on::before-request="document.querySelector('#response-error')?.classList.add('hidden')"
-        class="space-y-4"
-      >
-        <!-- GRID WRAPPER: 2 columns, gap between -->
-        <div class="grid w-full grid-cols-[1fr_auto] gap-2">
-          <!-- 1) INPUT: row 1, col 1 -->
-          <input
-            id="youtube-url"
-            name="youtube_url"
-            type="url"
-            class="input input-bordered input-primary validator col-start-1 row-start-1 w-full"
-            placeholder="https://www.youtube.com/watch?v=..."
-            pattern="^https:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w\-]{11}$"
-            required
-            title="Must be a valid YouTube video URL"
-          />
-
-          <!-- 2) HINT: row 2, spans both columns -->
-          <p
-            class="validator-hint text-error col-span-2 row-start-2 mt-1 text-sm"
-          >
-            Must be a valid YouTube video URL
-          </p>
-
-          <!-- 3) BUTTON: row 1, col 2 -->
-          <button
-            id="submit-btn"
-            type="submit"
-            class="btn btn-primary col-start-2 row-start-1"
-            disabled
-          >
-            Analyze
-          </button>
-        </div>
-        <!-- LOADING INDICATOR: shown during request -->
-        <div
-          class="htmx-indicator flex w-full flex-col items-center justify-center gap-2 py-4"
-          id="loading-indicator"
+  <section class="hero py-10" id="hero-section">
+    <div class="hero-content text-center">
+      <div class="w-full max-w-2xl">
+        <h1
+          class="text-3xl font-bold tracking-tight text-balance md:text-4xl lg:text-5xl"
         >
-          <span class="loading loading-ring loading-xl"></span>
-          <p className="text-gray-600">
-            Analyzing comments and generating insights...
-          </p>
-        </div>
-        <!-- ERROR MESSAGE: shown if request fails -->
-        <div id="response-error" class="hidden"></div>
-      </form>
-    </section>
-  </div>
+          YouTube Comments Analyzer
+        </h1>
+        <p class="pt-4 text-lg leading-7">
+          Get AI-powered insights from YouTube video comments. Analyze
+          sentiment, discover trends, and chat about the findings.
+        </p>
+      </div>
+    </div>
+  </section>
+  <section
+    class="bg-base-200 mx-auto flex max-w-2xl flex-col items-center rounded-2xl p-6 shadow md:min-w-2xl"
+    id="form-section"
+    hx-ext="response-targets"
+  >
+    <h2 class="card-title text-center text-2xl tracking-tight">
+      Analyze Any YouTube Video
+    </h2>
+    <p class="card-content py-4 text-sm leading-relaxed font-light">
+      Enter a YouTube video URL to get started with AI-powered comment analysis
+    </p>
+
+    <form
+      hx-post="{{ url_for('summarize') }}"
+      hx-target="#main-block"
+      hx-target-error="#response-error"
+      hx-swap="innerHTML"
+      hx-disabled-elt="find input[type='url'], find button"
+      hx-on::before-request="document.querySelector('#response-error')?.classList.add('hidden')"
+      class="w-full space-y-4"
+    >
+      <!-- GRID WRAPPER: 2 columns, gap between -->
+      <div class="grid w-full grid-cols-[1fr_auto] gap-2">
+        <!-- 1) INPUT: row 1, col 1 -->
+        <input
+          id="youtube-url"
+          name="youtube_url"
+          type="url"
+          class="input input-bordered input-primary validator col-start-1 row-start-1 w-full"
+          placeholder="https://www.youtube.com/watch?v=..."
+          pattern="^https:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w\-]{11}$"
+          required
+          title="Must be a valid YouTube video URL"
+        />
+
+        <!-- 2) HINT: row 2, spans both columns -->
+        <p
+          class="validator-hint text-error col-span-2 row-start-2 mt-1 text-sm"
+        >
+          Must be a valid YouTube video URL
+        </p>
+
+        <!-- 3) BUTTON: row 1, col 2 -->
+        <button
+          id="submit-btn"
+          type="submit"
+          class="btn btn-primary col-start-2 row-start-1"
+          disabled
+        >
+          Analyze
+        </button>
+      </div>
+      <!-- LOADING INDICATOR: shown during request -->
+      <div
+        class="htmx-indicator flex w-full flex-col items-center justify-center gap-2 py-4"
+        id="loading-indicator"
+      >
+        <span class="loading loading-ring loading-xl"></span>
+        <p className="text-gray-600">
+          Analyzing comments and generating insights...
+        </p>
+      </div>
+      <!-- ERROR MESSAGE: shown if request fails -->
+      <div id="response-error" class="hidden"></div>
+    </form>
+  </section>
 {% endblock %}
 {% block scripts %}
   <script>

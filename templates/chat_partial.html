@@ -1,52 +1,73 @@
-<div id="chat-block" data-session-id="{{ session_id }}">
-  <div class="card bg-base-100 p-4 shadow">
-    <h2 class="card-title">Chat About Comments</h2>
+<div
+  id="chat-block"
+  data-session-id="{{ session_id }}"
+  class="mx-auto flex min-h-screen w-full max-w-5xl flex-col pt-8"
+>
+  <!-- Messages Container -->
+  <div
+    class="mx-auto w-full flex-1"
+    id="messages"
+    hx-on="htmx:afterSwap: window.scrollTo(0, document.body.scrollHeight)"
+  >
+    <!-- Welcome Message -->
+    <div class="chat chat-start">
+      <div class="chat-header">AI Assistant</div>
+      <div class="chat-bubble chat-bubble-primary">
+        👋 Hi! I'm here to help you analyze the YouTube comments. Ask me
+        anything like:
+        <br /><br />
+        • "What are the main themes?"<br />
+        • "How do people feel about this video?"<br />
+        • "What are common criticisms?"<br />
+        • "Any suggestions from viewers?"
+      </div>
+    </div>
+    <!-- Dynamic messages will be inserted here by HTMX -->
+  </div>
 
-    <!-- Message list (starts empty) -->
-    <div
-      id="messages"
-      class="mb-4 max-h-96 space-y-2 overflow-auto"
-      hx-on="htmx:afterSwap: this.scrollTop = this.scrollHeight"
-    ></div>
-
-    <!-- New message form -->
+  <!-- Input Area -->
+  <div
+    class="bg-base-200 sticky bottom-0 z-50 mx-auto w-full rounded-t-2xl p-4"
+  >
+    <!-- Input Form -->
     <form
       hx-post="{{ url_for('answer_question') }}"
       hx-target="#messages"
       hx-swap="beforeend"
       hx-vals='{"session_id":"{{ session_id }}"}'
-      class="flex gap-2"
+      hx-on::after-request="this.reset()"
+      class="join mx-auto w-full"
     >
       <input
         name="question"
         type="text"
+        autocomplete="off"
         required
-        placeholder="Ask something about the comments…"
-        class="input input-bordered flex-1"
+        placeholder="Ask me anything about the comments..."
+        class="input input-bordered join-item flex-1"
       />
-      <button type="submit" class="btn btn-primary">Send</button>
+      <button type="submit" class="btn btn-primary join-item">Send</button>
     </form>
-  </div>
 
-  <!-- Navigation -->
-  <div class="mt-4 flex justify-center gap-4">
-    <button
-      class="btn btn-outline"
-      hx-get="{{ url_for('get_session') }}"
-      hx-target="#main-block"
-      hx-swap="innerHTML"
-      hx-vals='{"session_id":"{{ session_id }}"}'
-    >
-      ← Back to Summary
-    </button>
-
-    <div
-      hx-boost="true"
-      hx-target="#main-block"
-      hx-swap="outerHTML"
-      hx-select="#main-block"
-    >
-      <a href="{{ url_for('home') }}" class="btn btn-outline">
+    <!-- Bottom Actions -->
+    <div class="mt-3 flex justify-center">
+      <button
+        class="btn btn-ghost btn-sm"
+        hx-get="{{ url_for('get_session') }}"
+        hx-target="#main-block"
+        hx-swap="innerHTML"
+        hx-vals='{"session_id":"{{ session_id }}"}'
+      >
+        ← Back to Summary
+      </button>
+      <a
+        href="{{ url_for('home') }}"
+        class="btn btn-ghost btn-sm"
+        hx-boost="true"
+        hx-target="#main-block"
+        hx-swap="outerHTML"
+        hx-select="#main-block"
+      >
         Analyze Another Video
       </a>
     </div>
