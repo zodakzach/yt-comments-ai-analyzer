@@ -173,6 +173,39 @@ async def get_session(
     )
 
 
+def handle_chat_error(request: Request, msg: str):
+    return templates.TemplateResponse(
+        "error_partial.html",
+        {
+            "request": request,
+            "error": msg,
+            "answer": None,
+            "similar_comments": None,
+        },
+        status_code=200,
+    )
+
+
+@router.get("/chat", response_class=HTMLResponse)
+async def chat(
+    request: Request,
+    session_id: str = Query(None, description="Per-tab session ID"),
+):
+    # pick up the session ID from the param
+    sid = session_id
+    if not sid:
+        return handle_chat_error(request, "Session missing or expired")
+
+    return templates.TemplateResponse(
+        "chat_partial.html",
+        {
+            "request": request,
+            "session_id": sid,
+        },
+        status_code=200,
+    )
+
+
 @router.post("/question/", response_class=HTMLResponse)
 async def answer_question(
     request: Request,
@@ -218,39 +251,6 @@ async def answer_question(
             "question": question,
             "answer": answer,
             "similar_comments": similar,
-        },
-        status_code=200,
-    )
-
-
-def handle_chat_error(request: Request, msg: str):
-    return templates.TemplateResponse(
-        "error_partial.html",
-        {
-            "request": request,
-            "error": msg,
-            "answer": None,
-            "similar_comments": None,
-        },
-        status_code=200,
-    )
-
-
-@router.get("/chat", response_class=HTMLResponse)
-async def chat(
-    request: Request,
-    session_id: str = Query(None, description="Per-tab session ID"),
-):
-    # pick up the session ID from the param
-    sid = session_id
-    if not sid:
-        return handle_chat_error(request, "Session missing or expired")
-
-    return templates.TemplateResponse(
-        "chat_partial.html",
-        {
-            "request": request,
-            "session_id": sid,
         },
         status_code=200,
     )

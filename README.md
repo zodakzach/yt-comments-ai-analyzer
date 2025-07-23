@@ -36,25 +36,12 @@ This project is a FastAPI application that summarizes YouTube comments using AI 
    uvicorn app.main:app --reload
    ```
 
-5. **Run tests**
-
-   ```bash
-   uv pip install pytest  # if not already installed
-   pytest
-   ```
-
 ## Usage
 
 - The API provides HTMX endpoints that return HTML templates:
   - `/summarize/` - Summarize YouTube comments and start a session (returns a summary template).
   - `/question/` - Ask a question about the summarized comments using your session (returns an answer template).
   - `/health` - Health check endpoint
-
-## Testing
-
-- Tests are located in the `tests/` directory.
-- Use `pytest` to run the test suite.
-- Currently no tests lol
 
 ## Contributing
 

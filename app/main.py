@@ -7,11 +7,6 @@ from app.core.config import STATIC_DIR
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router as api_router
 
-# 1️⃣ Initialize logging
-init_logging()
-
-logger = logging.getLogger(__name__)  # now logs as "app.main"
-
 # ─── App & CORS ───────────────────────────────────────────────────────────────
 app = FastAPI(title="YouTube Comment Summarizer API", version="0.1.0")
 # Mount the static directory
@@ -27,6 +22,12 @@ app.add_middleware(
 
 
 # ─── Timing & Logging Middleware ──────────────────────────────────────────────
+# Initialize logging
+init_logging()
+
+logger = logging.getLogger(__name__)
+
+
 @app.middleware("http")
 async def log_and_time(request: Request, call_next):
     start = time.time()
