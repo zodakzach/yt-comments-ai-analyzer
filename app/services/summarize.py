@@ -3,7 +3,7 @@ import logging
 import re
 from openai import OpenAIError, RateLimitError
 
-from app.services.fetch_comments import fetch_all_comments
+from app.services.youtube.fetch_comments import fetch_all_comments
 from app.core.openai_client import async_client
 from app.services.errors import CommentFetchError, OpenAIInteractionError
 from app.models.schemas import Comment

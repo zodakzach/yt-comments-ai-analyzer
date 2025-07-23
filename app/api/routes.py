@@ -1,13 +1,10 @@
-import base64
-import gzip
-import json
 import logging
-from fastapi import APIRouter, Query, Response, Request, Form
+from fastapi import APIRouter, Query, Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from app.core.redis_client import redis_client
 from app.core.config import TEMPLATES_DIR
-from app.models.schemas import HealthResponse
+from app.models.schemas import HealthResponse, VideoInfo, Session
 from app.services.sentiment import (
     annotate_comments_with_sentiment,
     compute_sentiment_stats,
@@ -15,6 +12,7 @@ from app.services.sentiment import (
 from app.services.summarize import summarize_comments, extract_youtube_id
 from app.services.session import (
     create_full_session,
+    fetch_session,
     fetch_summary_and_comments,
     get_or_compute_embeddings,
 )
@@ -27,6 +25,7 @@ from app.services.errors import (
     SessionExpiredError,
     SessionStorageError,
 )
+from app.services.youtube.fetch_vid_info import build_video_object
 
 
 router = APIRouter()
@@ -56,7 +55,7 @@ async def summarize(
     request: Request,
     youtube_url: str = Form(...),
 ):
-    # 1. Extract video ID from URL
+    # 1) Extract video ID
     video_id = extract_youtube_id(youtube_url)
     if not video_id:
         logger.warning("Invalid YouTube URL provided: %s", youtube_url)
@@ -64,7 +63,7 @@ async def summarize(
             request, "Invalid YouTube URL.", status_code=422
         )
 
-    # 2. Summarize comments
+    # 2) Summarize comments
     try:
         summary, sorted_comments = await summarize_comments(video_id)
     except CommentFetchError as e:
@@ -83,42 +82,51 @@ async def summarize(
             request, "Internal error summarizing comments.", status_code=500
         )
 
-    # Annotate **all** comments with VADER
+    # 3) Annotate all comments with sentiment
     try:
         sorted_comments = annotate_comments_with_sentiment(sorted_comments)
     except Exception as e:
         logger.warning("Sentiment analysis error, proceeding without it: %s", e)
 
-    # Compute aggregate sentiment stats
+    # 4) Compute aggregate stats & pick top N
     sentiment_stats = compute_sentiment_stats(sorted_comments)
-
-    # Take only the top N for embedding & storage
     top_comments = sorted_comments[:COMMENT_EMBEDDING_LIMIT]
 
+    # 5) Fetch & validate video metadata
+    vid_info: VideoInfo = await build_video_object(
+        video_id=video_id,
+        thumbnail_quality="hqdefault",
+    )
+
+    # 6) Build full Session model and persist
+    session_model = Session(
+        video_id=video_id,
+        video_info=vid_info,
+        summary=summary,
+        comments=top_comments,
+        total_comments=len(sorted_comments),
+        sentiment_stats=sentiment_stats,
+    )
+
     try:
-        session_id = await create_full_session(
-            summary=summary,
-            comments=top_comments,
-            total_comments=len(sorted_comments),
-            sentiment_stats=sentiment_stats,
-        )
+        session_id = await create_full_session(session_model)
     except DataCorruptionError as e:
         logger.error("Session serialization error: %s", e)
-        # This means something drove error preparing the blob
         return handle_summarization_error(
-            request, "Internal error storing session.", 500
+            request, "Internal error storing session.", status_code=500
         )
     except SessionStorageError as e:
         logger.error("Session storage error: %s", e)
-        # This means Redis calls failed
         return handle_summarization_error(
-            request, "Internal error storing session.", 500
+            request, "Internal error storing session.", status_code=500
         )
 
-    template_resp = templates.TemplateResponse(
+    # 7) Render template
+    return templates.TemplateResponse(
         "summary_partial.html",
         {
             "request": request,
+            "video_info": vid_info,
             "summary": summary,
             "top_comments": top_comments[:5],
             "total_comments": len(sorted_comments),
@@ -127,8 +135,6 @@ async def summarize(
         },
         status_code=200,
     )
-
-    return template_resp
 
 
 @router.get("/session/", response_class=HTMLResponse)
@@ -142,44 +148,25 @@ async def get_session(
             request, "Missing session_id query parameter.", status_code=422
         )
 
-    # 1) Fetch the blob
+    # 1) Fetch the typed Session model
     try:
-        raw = await redis_client.get(f"{session_id}:session")
-    except Exception as err:
-        logger.error("Redis error fetching session %s: %s", session_id, err)
-        return handle_summarization_error(
-            request, "Internal error fetching session.", status_code=500
-        )
+        session: Session = await fetch_session(session_id)
+    except SessionExpiredError as err:
+        return handle_summarization_error(request, str(err), status_code=404)
+    except (SessionStorageError, DataCorruptionError) as err:
+        logger.error("Error retrieving session %s: %s", session_id, err)
+        return handle_summarization_error(request, str(err), status_code=500)
 
-    # 2) Check existence
-    if raw is None:
-        return handle_summarization_error(
-            request,
-            "Session not found or expired. Please summarize a video first.",
-            status_code=404,
-        )
-
-    # 3) Decode & decompress
-    try:
-        compressed = base64.b64decode(raw)
-        data = json.loads(gzip.decompress(compressed).decode("utf-8"))
-    except Exception as err:
-        logger.error("Error decoding session payload %s: %s", session_id, err)
-        return handle_summarization_error(
-            request,
-            "Corrupted session data. Please try summarizing again.",
-            status_code=500,
-        )
-
-    # 4) Render the same summary_partial.html
+    # 2) Render using the same template
     return templates.TemplateResponse(
         "summary_partial.html",
         {
             "request": request,
-            "summary": data["summary"],
-            "top_comments": data["comments"][:5],
-            "total_comments": data["total_comments"],
-            "sentiment_stats": data["sentiment_stats"],
+            "video_info": session.video_info,
+            "summary": session.summary,
+            "top_comments": session.comments[:5],
+            "total_comments": session.total_comments,
+            "sentiment_stats": session.sentiment_stats,
             "session_id": session_id,
         },
         status_code=200,
@@ -194,7 +181,6 @@ async def answer_question(
 ):
     # 1️⃣ Session + data
     try:
-        print(session_id)
         summary, comments = await fetch_summary_and_comments(session_id)
     except (SessionExpiredError, DataCorruptionError) as e:
         return handle_chat_error(request, str(e))

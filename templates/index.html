@@ -2,7 +2,7 @@
 {% block title %}YouTube Comment Summarizer{% endblock %}
 
 {% block content %}
-  <section class="hero py-10" id="hero-section">
+  <section class="hero py-6" id="hero-section">
     <div class="hero-content text-center">
       <div class="w-full max-w-2xl">
         <h1
@@ -20,7 +20,6 @@
   <section
     class="bg-base-200 mx-auto flex max-w-2xl flex-col items-center rounded-2xl p-6 shadow md:min-w-2xl"
     id="form-section"
-    hx-ext="response-targets"
   >
     <h2 class="card-title text-center text-2xl tracking-tight">
       Analyze Any YouTube Video
@@ -71,7 +70,7 @@
       </div>
       <!-- LOADING INDICATOR: shown during request -->
       <div
-        class="htmx-indicator flex w-full flex-col items-center justify-center gap-2 py-4"
+        class="htmx-indicator flex w-full flex-col items-center justify-center gap-2"
         id="loading-indicator"
       >
         <span class="loading loading-ring loading-xl"></span>
@@ -82,6 +81,96 @@
       <!-- ERROR MESSAGE: shown if request fails -->
       <div id="response-error" class="hidden"></div>
     </form>
+  </section>
+  <section class="w-full py-8">
+    <div class="mx-auto max-w-4xl">
+      <h3 class="mb-12 text-center text-2xl font-bold">
+        What You Will Discover
+      </h3>
+
+      <div class="grid gap-8 md:grid-cols-3">
+        <!-- Sentiment Analysis -->
+        <div class="space-y-4 text-center">
+          <div
+            class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100"
+          >
+            <!-- Heroicon: Trending Up -->
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-8 w-8 text-blue-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M3 17l6-6 4 4 8-8"
+              />
+            </svg>
+          </div>
+          <h4 class="text-xl font-semibold">Sentiment Analysis</h4>
+          <p class="text-slate-400">
+            Understand the overall mood and emotional tone of video comments.
+          </p>
+        </div>
+
+        <!-- Key Themes -->
+        <div class="space-y-4 text-center">
+          <div
+            class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100"
+          >
+            <!-- Heroicon: Chat -->
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-8 w-8 text-green-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8-1.059 0-2.065-.145-3-.415L3 21l1.415-6A9.953 9.953 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+              />
+            </svg>
+          </div>
+          <h4 class="text-xl font-semibold">Key Themes</h4>
+          <p class="text-slate-400">
+            Identify trending topics and recurring themes in discussions.
+          </p>
+        </div>
+
+        <!-- AI Insights -->
+        <div class="space-y-4 text-center">
+          <div
+            class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-purple-100"
+          >
+            <!-- Heroicon: Light Bulb (as proxy for Brain) -->
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-8 w-8 text-purple-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M11 3a1 1 0 011 1v.017a7 7 0 015.916 5.916H19a1 1 0 110 2h-.084a7 7 0 01-5.832 5.832V19a1 1 0 11-2 0v-.084a7 7 0 01-5.832-5.832H5a1 1 0 110-2h.084A7 7 0 0110 4.017V4a1 1 0 011-1z"
+              />
+            </svg>
+          </div>
+          <h4 class="text-xl font-semibold">AI Insights</h4>
+          <p class="text-slate-400">
+            Get intelligent summaries and actionable insights from the data.
+          </p>
+        </div>
+      </div>
+    </div>
   </section>
 {% endblock %}
 {% block scripts %}

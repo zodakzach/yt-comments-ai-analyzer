@@ -1,17 +1,14 @@
-# app/main.py
-from app.core.logging import init_logging
-
-# 1️⃣ Initialize logging first
-init_logging()
-
 import time
 import logging
-
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
+from app.core.logging import init_logging
 from fastapi.staticfiles import StaticFiles
-from app.api.routes import router as api_router
 from app.core.config import STATIC_DIR
+from fastapi.middleware.cors import CORSMiddleware
+from app.api.routes import router as api_router
+
+# 1️⃣ Initialize logging
+init_logging()
 
 logger = logging.getLogger(__name__)  # now logs as "app.main"
 

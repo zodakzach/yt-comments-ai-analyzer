@@ -3,12 +3,12 @@ import base64
 import gzip
 import json
 import uuid
-from typing import Dict, Tuple, List
+from typing import Tuple, List
 import numpy as np
 import logging
 
 from app.core.redis_client import redis_client
-from app.models.schemas import Comment
+from app.models.schemas import Comment, Session
 from app.services.vectorize import vectorize_comments
 from app.services.errors import (
     SessionExpiredError,
@@ -139,45 +139,57 @@ async def get_or_compute_embeddings(
 
 
 async def create_full_session(
-    summary: str,
-    comments: List[Comment],
-    total_comments: int,
-    sentiment_stats: Dict[str, float],
+    session: Session,
     expiration: int = REDIS_EXPIRATION_SECONDS,
 ) -> str:
     """
-    Stores everything needed to re-render the summary UI in one Redis blob:
-      - summary text
-      - list of Comment dicts (with sentiment)
-      - total_comments count
-      - sentiment_stats (percent positive/neutral/negative)
-
-    Raises:
-      - DataCorruptionError: on serialization/compression failure
-      - SessionStorageError: on any Redis failure
+    Stores the entire Session model in Redis as one blob.
+    Uses Pydantic's `model_dump_json()` to get a JSON string.
     """
     session_id = uuid.uuid4().hex
-    payload = {
-        "summary": summary,
-        "comments": [c.model_dump() for c in comments],
-        "total_comments": total_comments,
-        "sentiment_stats": sentiment_stats,
-    }
 
-    # Serialize, compress, encode
+    # 1) Pydantic → JSON string (all HttpUrl -> str)
     try:
-        raw = json.dumps(payload).encode("utf-8")
+        json_str = session.model_dump_json()
+        raw = json_str.encode("utf-8")
         compressed = gzip.compress(raw)
         blob = base64.b64encode(compressed).decode("utf-8")
     except (TypeError, ValueError, OSError, UnicodeError) as err:
-        logger.error("Serialization error preparing session %s: %s", session_id, err)
+        logger.error("Serialization error for session %s: %s", session_id, err)
         raise DataCorruptionError("Failed to prepare session payload") from err
 
-    # Store single blob under one key
+    # 2) Store in Redis
     try:
         await redis_client.set(f"{session_id}:session", blob, ex=expiration)
     except Exception as err:
-        logger.error("Error storing full session %s: %s", session_id, err)
+        logger.error("Redis error storing session %s: %s", session_id, err)
         raise SessionStorageError("Could not persist full session data") from err
 
     return session_id
+
+
+async def fetch_session(session_id: str) -> Session:
+    """
+    Fetches, decodes, and returns a Session object.
+    """
+    # 1) Get blob
+    try:
+        raw = await redis_client.get(f"{session_id}:session")
+    except Exception as err:
+        logger.error("Redis error fetching session %s: %s", session_id, err)
+        raise SessionStorageError("Internal error fetching session.")
+
+    if raw is None:
+        raise SessionExpiredError("Session expired or not found.")
+
+    # 2) Decode + decompress + parse
+    try:
+        compressed = base64.b64decode(raw)
+        text = gzip.decompress(compressed).decode("utf-8")
+        data = json.loads(text)
+    except Exception as err:
+        logger.error("Decoding error for session %s: %s", session_id, err)
+        raise DataCorruptionError("Corrupted session data.") from err
+
+    # 3) Pydantic → Session
+    return Session.model_validate(data)

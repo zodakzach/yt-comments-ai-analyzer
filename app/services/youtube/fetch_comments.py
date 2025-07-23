@@ -9,6 +9,7 @@ BASE_THREADS = "https://www.googleapis.com/youtube/v3/commentThreads"
 BASE_COMMENTS = "https://www.googleapis.com/youtube/v3/comments"
 SEM = asyncio.Semaphore(8)  # limit concurrency
 
+
 async def fetch_all_comments(video_id: str) -> List[Comment]:
     api_key = settings.YOUTUBE_API_KEY
     comments: List[Comment] = []
@@ -58,7 +59,9 @@ async def fetch_all_comments(video_id: str) -> List[Comment]:
                     )
 
                 # schedule a full‐fetch only if there are more replies
-                if item["snippet"].get("totalReplyCount", 0) > len(item.get("replies", {}).get("comments", [])):
+                if item["snippet"].get("totalReplyCount", 0) > len(
+                    item.get("replies", {}).get("comments", [])
+                ):
                     parent_id = item["snippet"]["topLevelComment"]["id"]
                     tasks.append(_fetch_all_replies(parent_id, client, api_key))
 

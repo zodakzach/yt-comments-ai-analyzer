@@ -4,7 +4,46 @@
   data-session-id="{{ session_id }}"
   class="space-y-6 py-8"
 >
-  <div class="card bg-base-100 card-border p-2 shadow">
+  <div class="card bg-base-200 rounded-2xl p-2 shadow">
+    <div
+      class="card-body flex flex-col items-start space-y-4 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4"
+    >
+      <!-- Thumbnail + Link -->
+      <a href="{{ video_info.url }}" target="_blank" class="block shrink-0">
+        <img
+          src="{{ video_info.thumbnailUrl }}"
+          alt="Thumbnail for {{ video_info.title }}"
+          class="h-auto w-48 rounded-lg shadow"
+        />
+      </a>
+
+      <!-- Metadata -->
+      <div class="flex-1">
+        <h2 class="card-title mb-2 text-xl font-semibold">
+          <a
+            href="{{ video_info.url }}"
+            target="_blank"
+            class="hover:underline"
+          >
+            {{ video_info.title }}
+          </a>
+        </h2>
+        <p class="mb-1 text-sm text-gray-600">
+          📅 Published:
+          <time datetime="{{ video_info.publishedAt }}"
+            >{{ video_info.publishedAt }}</time
+          >
+        </p>
+        <p class="mb-1 text-sm text-gray-600">
+          👁️ Views: {{ "{:,}".format(video_info.viewCount) }}
+        </p>
+        <p class="text-sm text-gray-600">
+          👍 Likes: {{ "{:,}".format(video_info.likeCount) }}
+        </p>
+      </div>
+    </div>
+  </div>
+  <div class="card bg-base-200 rounded-2xl p-2 shadow">
     <div class="card-body">
       <h2 class="card-title">AI Summary</h2>
       <p class="prose text-base leading-relaxed whitespace-pre-line">
@@ -15,7 +54,7 @@
 
   <!-- Stats Section -->
   <div
-    class="stats stats-vertical md:stats-horizontal card bg-base-100 card-border w-full gap-4 p-4 shadow"
+    class="stats stats-vertical md:stats-horizontal card bg-base-200 w-full gap-4 rounded-2xl p-4 shadow"
   >
     <!-- Total Comments -->
     <div class="stat">
@@ -43,7 +82,7 @@
   </div>
 
   <!-- Top Comments Section -->
-  <div class="card card-border bg-base-100 w-full shadow">
+  <div class="card bg-base-200 w-full rounded-2xl shadow">
     <div class="card-body">
       <h2 class="card-title">Top 5 Comments</h2>
       <p class="text-gray-400">
