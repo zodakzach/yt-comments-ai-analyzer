@@ -3,7 +3,7 @@ from typing import List
 import numpy as np
 from openai import OpenAIError, RateLimitError
 from app.core.openai_client import async_client
-from app.models.schemas import Comment
+from app.models.schemas import Comment, Session
 from app.services.errors import OpenAIInteractionError, EmbeddingError
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ async def search_similar_comments(
 
 
 async def generate_answer(
-    question: str, relevant_comments: List[Comment], summary: str
+    question: str, relevant_comments: List[Comment], session: Session
 ) -> str:
     """
     Generate an answer to a question using a video summary and relevant comments.
@@ -68,7 +68,7 @@ async def generate_answer(
     Args:
         question (str): The user's question.
         relevant_comments (List[Comment]): List of comments most relevant to the question.
-        summary (str): The summary of the video.
+        session (Session): The session containing video metadata and summary.
 
     Raises:
         OpenAIInteractionError: If the OpenAI API call fails.
@@ -78,16 +78,31 @@ async def generate_answer(
     """
     related_text = "\n".join(f"- {c.text}" for c in relevant_comments)
     prompt = f"""
-Video Summary:
-{summary}
+    You are an intelligent assistant that answers questions about YouTube videos comments section. You are provided with the video’s metadata, an AI-generated summary, selected related comments, and audience sentiment insights. Use all relevant information to generate accurate, concise, and helpful answers to user questions.
 
-Related Comments:
-{related_text}
+    Video Information:
+    - Title: {session.video_info.title}
+    - Published At: {session.video_info.publishedAt}
+    - Views: {session.video_info.viewCount}
+    - Likes: {session.video_info.likeCount}
+    - URL: {session.video_info.url}
+    - Thumbnail: {session.video_info.thumbnailUrl}
 
-Question: {question}
+    Video Summary:
+    {session.summary}
 
-Based on the summary and related comments, please provide a clear, concise answer.
-"""
+    Related Comments:
+    {related_text}
+
+    Comment Insights:
+    - Total Comments Fetched: {session.total_comments}
+    - Sentiment Stats: {session.sentiment_stats}
+
+    Question:
+    {question}
+
+    Based on the video information, summary, related comments, and sentiment insights, provide a clear, concise, and informed answer.
+    """
 
     try:
         response = await async_client.chat.completions.create(

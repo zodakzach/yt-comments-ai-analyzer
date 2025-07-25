@@ -5,12 +5,24 @@
 This project is a FastAPI application that summarizes YouTube comments using AI models. It fetches comments from YouTube, summarizes them, vectorizes the comments for similarity search, and allows users to query for specific information.  
 **All main endpoints are HTMX endpoints and return rendered HTML templates, not raw JSON.**
 
+## Screenshots
+
+<p align="center">
+  <img src="public/landing.png" alt="Landing Page" width="600"/>
+</p>
+<p align="center">
+  <img src="public/analysis.png" alt="Analysis Example" width="600"/>
+</p>
+<p align="center">
+  <img src="public/chat.png" alt="Chat Example" width="600"/>
+</p>
+
 ## Setup Instructions
 
 1. **Clone the repository**
 
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/zodakzach/yt-comments-ai-analyzer.git
    cd yt-comments-ai-analyzer
    ```
 

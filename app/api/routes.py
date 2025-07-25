@@ -13,7 +13,6 @@ from app.services.summarize import summarize_comments, extract_youtube_id
 from app.services.session import (
     create_full_session,
     fetch_session,
-    fetch_summary_and_comments,
     get_or_compute_embeddings,
 )
 from app.services.qa import search_similar_comments, generate_answer
@@ -173,7 +172,7 @@ async def get_session(
     )
 
 
-def handle_chat_error(request: Request, msg: str):
+def handle_chat_error(request: Request, msg: str, status_code: int = 400):
     return templates.TemplateResponse(
         "error_partial.html",
         {
@@ -182,7 +181,7 @@ def handle_chat_error(request: Request, msg: str):
             "answer": None,
             "similar_comments": None,
         },
-        status_code=200,
+        status_code=status_code,
     )
 
 
@@ -191,16 +190,14 @@ async def chat(
     request: Request,
     session_id: str = Query(None, description="Per-tab session ID"),
 ):
-    # pick up the session ID from the param
-    sid = session_id
-    if not sid:
+    if not session_id:
         return handle_chat_error(request, "Session missing or expired")
 
     return templates.TemplateResponse(
         "chat_partial.html",
         {
             "request": request,
-            "session_id": sid,
+            "session_id": session_id,
         },
         status_code=200,
     )
@@ -214,13 +211,16 @@ async def answer_question(
 ):
     # 1️⃣ Session + data
     try:
-        summary, comments = await fetch_summary_and_comments(session_id)
-    except (SessionExpiredError, DataCorruptionError) as e:
-        return handle_chat_error(request, str(e))
+        session: Session = await fetch_session(session_id)
+    except SessionExpiredError as err:
+        return handle_chat_error(request, str(err), status_code=404)
+    except (SessionStorageError, DataCorruptionError) as err:
+        logger.error("Error retrieving session %s: %s", session_id, err)
+        return handle_chat_error(request, str(err), status_code=500)
 
     # 2️⃣ Embeddings
     try:
-        embeddings = await get_or_compute_embeddings(session_id, comments)
+        embeddings = await get_or_compute_embeddings(session_id, session.comments)
     except EmbeddingError as e:
         return handle_chat_error(request, str(e))
 
@@ -229,18 +229,19 @@ async def answer_question(
         similar = await search_similar_comments(
             question=question,
             embeddings=embeddings,
-            comments=comments,
+            comments=session.comments,
+            top_k=10,
         )
-        answer = await generate_answer(question, similar, summary)
+        answer = await generate_answer(question, similar, session)
     except EmbeddingError as e:
-        return handle_chat_error(request, f"Embedding error: {e}")
+        return handle_chat_error(request, f"Embedding error: {e}", status_code=500)
     except OpenAIInteractionError:
         return handle_chat_error(
-            request, "AI service unavailable. Please try again later."
+            request, "AI service unavailable. Please try again later.", status_code=503
         )
     except Exception:
         return handle_chat_error(
-            request, "Unexpected error during Q&A. Please try again."
+            request, "Unexpected error during Q&A. Please try again.", status_code=500
         )
 
     # 4️⃣ Success render

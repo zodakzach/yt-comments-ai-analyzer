@@ -7,7 +7,7 @@ from app.models.schemas import Comment
 
 BASE_THREADS = "https://www.googleapis.com/youtube/v3/commentThreads"
 BASE_COMMENTS = "https://www.googleapis.com/youtube/v3/comments"
-SEM = asyncio.Semaphore(8)  # limit concurrency
+SEM = asyncio.Semaphore(5)  # limit concurrency
 
 
 async def fetch_all_comments(video_id: str) -> List[Comment]:

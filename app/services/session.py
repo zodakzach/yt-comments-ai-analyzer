@@ -3,7 +3,7 @@ import base64
 import gzip
 import json
 import uuid
-from typing import Tuple, List
+from typing import List
 import numpy as np
 import logging
 
@@ -19,57 +19,6 @@ from app.services.errors import (
 
 logger = logging.getLogger(__name__)
 REDIS_EXPIRATION_SECONDS = 3600
-
-
-async def fetch_summary_and_comments(session_id: str) -> Tuple[str, List[Comment]]:
-    """
-    Retrieve the summary and comments for a given session from Redis.
-
-    Uses the single "{session_id}:session" blob, which contains:
-      {
-        "summary": "...",
-        "comments": [ {Comment.dict()}, ... ],
-        "total_comments": int,
-        "sentiment_stats": {...}
-      }
-
-    Raises:
-      - SessionExpiredError: if the session blob is missing
-      - DataCorruptionError: if the blob can't be decoded or parsed
-    """
-    # 1) fetch the one blob
-    try:
-        raw = await redis_client.get(f"{session_id}:session")
-    except Exception as err:
-        logger.error("Redis error fetching session %s: %s", session_id, err)
-        raise SessionExpiredError("Internal error fetching session") from err
-
-    if raw is None:
-        raise SessionExpiredError(
-            "Session expired or not found. Please summarize a video first."
-        )
-
-    # 2) decode & decompress
-    try:
-        compressed = base64.b64decode(raw)
-        payload = gzip.decompress(compressed)
-        data = json.loads(payload.decode("utf-8"))
-    except Exception as err:
-        logger.error("Error decoding session blob %s: %s", session_id, err)
-        raise DataCorruptionError(
-            "Corrupted session data. Please try summarizing again."
-        ) from err
-
-    # 3) extract summary + comments
-    try:
-        summary = data["summary"]
-        comment_dicts = data["comments"]
-        comments = [Comment(**c) for c in comment_dicts]
-    except Exception as err:
-        logger.error("Malformed session data %s: %s", session_id, err)
-        raise DataCorruptionError("Invalid session payload structure") from err
-
-    return summary, comments
 
 
 async def get_or_compute_embeddings(
