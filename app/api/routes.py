@@ -15,7 +15,7 @@ from app.services.session import (
     fetch_session,
     get_or_compute_embeddings,
 )
-from app.services.qa import search_similar_comments, generate_answer
+from app.services.agent import agent_answer
 from app.services.errors import (
     EmbeddingError,
     OpenAIInteractionError,
@@ -209,7 +209,7 @@ async def answer_question(
     session_id: str = Form(..., description="Per-tab session ID"),
     question: str = Form(...),
 ):
-    # 1️⃣ Session + data
+    # 1️⃣ Load session
     try:
         session: Session = await fetch_session(session_id)
     except SessionExpiredError as err:
@@ -218,21 +218,23 @@ async def answer_question(
         logger.error("Error retrieving session %s: %s", session_id, err)
         return handle_chat_error(request, str(err), status_code=500)
 
-    # 2️⃣ Embeddings
+    # 2️⃣ Compute or fetch embeddings
     try:
         embeddings = await get_or_compute_embeddings(session_id, session.comments)
     except EmbeddingError as e:
         return handle_chat_error(request, str(e))
 
-    # 3️⃣ Q&A
+    # 3️⃣ Agent-based Q&A
     try:
-        similar = await search_similar_comments(
+        result = await agent_answer(
             question=question,
-            embeddings=embeddings,
+            session=session,
+            comment_embeddings=embeddings,
             comments=session.comments,
-            top_k=10,
+            max_loops=2,
         )
-        answer = await generate_answer(question, similar, session)
+        answer = result.answer
+        similar = result.used_comments
     except EmbeddingError as e:
         return handle_chat_error(request, f"Embedding error: {e}", status_code=500)
     except OpenAIInteractionError:
@@ -244,14 +246,14 @@ async def answer_question(
             request, "Unexpected error during Q&A. Please try again.", status_code=500
         )
 
-    # 4️⃣ Success render
+    # 4️⃣ Render the answer (no separate similar_comments)
     return templates.TemplateResponse(
         "message_partial.html",
         {
             "request": request,
             "question": question,
             "answer": answer,
-            "similar_comments": similar,
+            "similar_comments": similar if similar else None,
         },
         status_code=200,
     )
