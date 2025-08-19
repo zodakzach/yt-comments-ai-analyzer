@@ -63,7 +63,7 @@ async def summarize_comments(video_id: str) -> tuple[str, list[Comment]]:
     # 3️⃣ Call OpenAI
     try:
         response = await async_client.chat.completions.create(
-            model="gpt-4.1-mini",
+            model="gpt-5-mini-2025-08-07",
             messages=[
                 {"role": "system", "content": "You are an expert summarizer."},
                 {"role": "user", "content": prompt},

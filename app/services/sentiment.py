@@ -1,10 +1,62 @@
+import os
+from pathlib import Path
+from typing import Dict, List
+
 import nltk
 from nltk.sentiment import SentimentIntensityAnalyzer
-from typing import List, Dict
+
+from app.core.config import BASE_DIR
 from app.models.schemas import Comment
 
-# Download once at startup
-nltk.download("vader_lexicon", quiet=True)
+# - If NLTK_DATA is set in the environment, use that.
+# - Otherwise, default to <project_root>/nltk_data.
+NLTK_DATA_DIR = Path(os.environ.get("NLTK_DATA", BASE_DIR / "nltk_data"))
+
+
+def ensure_vader(download_dir: Path) -> None:
+    """
+    Ensure the VADER lexicon is available in download_dir.
+    If missing, download it to that directory.
+    """
+    # Make sure NLTK searches our directory
+    if str(download_dir) not in nltk.data.path:
+        nltk.data.path.append(str(download_dir))
+
+    # Check if VADER is already present (zipped or unzipped)
+    try:
+        nltk.data.find("sentiment/vader_lexicon.zip")
+        return
+    except LookupError:
+        pass
+
+    try:
+        nltk.data.find("sentiment/vader_lexicon")
+        return
+    except LookupError:
+        pass
+
+    # Not found: download to our directory
+    download_dir.mkdir(parents=True, exist_ok=True)
+    nltk.download("vader_lexicon", download_dir=str(download_dir), quiet=True)
+
+    # Re-verify after download (some environments need a second path append)
+    if str(download_dir) not in nltk.data.path:
+        nltk.data.path.append(str(download_dir))
+
+    try:
+        nltk.data.find("sentiment/vader_lexicon.zip")
+    except LookupError:
+        try:
+            nltk.data.find("sentiment/vader_lexicon")
+        except LookupError as e_unzipped:
+            raise RuntimeError(
+                f"Failed to locate VADER lexicon in {download_dir}. "
+                "Ensure write permissions or set NLTK_DATA to a writable dir."
+            ) from e_unzipped
+
+
+# Ensure VADER is present at startup in the chosen directory
+ensure_vader(NLTK_DATA_DIR)
 
 _sia = SentimentIntensityAnalyzer()
 
